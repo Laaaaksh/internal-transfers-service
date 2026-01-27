@@ -14,9 +14,22 @@ ssl_mode = "disable"
 max_connections = 10
 min_connections = 2
 
+[database.retry]
+# Fewer retries in dev for faster feedback
+enabled = true
+max_retries = 3
+initial_backoff = "500ms"
+max_backoff = "5s"
+
 [logging]
 level = "debug"
 format = "console"
 
 [metrics]
 enabled = true
+
+[rate_limit]
+# Higher limits for development to avoid blocking during testing
+enabled = true
+requests_per_second = 1000.0
+burst_size = 2000

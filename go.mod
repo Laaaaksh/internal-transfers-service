@@ -1,8 +1,8 @@
 module github.com/internal-transfers-service
 
-go 1.23.0
+go 1.24.0
 
-toolchain go1.23.12
+toolchain go1.24.12
 
 require (
 	github.com/go-chi/chi/v5 v5.0.12
@@ -45,6 +45,7 @@ require (
 	golang.org/x/sync v0.16.0 // indirect
 	golang.org/x/sys v0.18.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
+	golang.org/x/time v0.14.0 // indirect
 	google.golang.org/protobuf v1.33.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

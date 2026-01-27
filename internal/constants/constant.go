@@ -202,10 +202,10 @@ const (
 
 // JSON response building constants
 const (
-	JSONErrorPrefix    = `{"error":"`
-	JSONCodePrefix     = `","code":"`
+	JSONErrorPrefix     = `{"error":"`
+	JSONCodePrefix      = `","code":"`
 	JSONRequestIDPrefix = `","request_id":"`
-	JSONSuffix         = `"}`
+	JSONSuffix          = `"}`
 )
 
 // Log field key constants
@@ -237,14 +237,39 @@ const (
 
 // Database error format strings
 const (
-	ErrFmtFailedToParseConnString  = "failed to parse connection string: %w"
-	ErrFmtFailedToCreateConnPool   = "failed to create connection pool: %w"
-	ErrFmtFailedToPingDB           = "failed to ping database: %w"
+	ErrFmtFailedToParseConnString = "failed to parse connection string: %w"
+	ErrFmtFailedToCreateConnPool  = "failed to create connection pool: %w"
+	ErrFmtFailedToPingDB          = "failed to ping database: %w"
+	ErrFmtDBConnectionFailedRetry = "database connection failed after %d attempts: %w"
+)
+
+// Database retry constants
+const (
+	// Default retry values
+	DefaultDBRetryMaxRetries     = 5
+	DefaultDBRetryInitialBackoff = "1s"
+	DefaultDBRetryMaxBackoff     = "30s"
+)
+
+// Database retry log messages
+const (
+	LogMsgDBConnectionAttempt = "Attempting database connection"
+	LogMsgDBConnectionRetry   = "Database connection failed, retrying"
+	LogMsgDBConnectionSuccess = "Database connection established"
+	LogMsgDBConnectionFailed  = "Database connection failed after max retries"
+)
+
+// Database retry log field keys
+const (
+	LogFieldAttempt     = "attempt"
+	LogFieldMaxRetries  = "max_retries"
+	LogFieldBackoff     = "backoff"
+	LogFieldNextBackoff = "next_backoff"
 )
 
 // Transaction repository log messages
 const (
-	LogMsgFailedToCreateTx = "Failed to create transaction"
+	LogMsgFailedToCreateTx   = "Failed to create transaction"
 	LogMsgTransactionCreated = "Transaction created"
 )
 
@@ -278,9 +303,9 @@ const (
 	HeaderCacheControl        = "Cache-Control"
 
 	// Security header values
-	ValueNoSniff  = "nosniff"
-	ValueDeny     = "DENY"
-	ValueNoStore  = "no-store"
+	ValueNoSniff = "nosniff"
+	ValueDeny    = "DENY"
+	ValueNoStore = "no-store"
 
 	// Content-Type validation
 	ContentTypeJSONPrefix = "application/json"
@@ -314,4 +339,31 @@ const (
 // Log messages for decimal validation
 const (
 	LogMsgTooManyDecimalPlaces = "Too many decimal places in value"
+)
+
+// Rate limiting constants
+const (
+	// Default rate limit values
+	DefaultRateLimitRequestsPerSec = 100.0
+	DefaultRateLimitBurstSize      = 200
+
+	// HTTP status code for rate limit exceeded
+	HTTPStatusTooManyRequests = 429
+
+	// Rate limit headers
+	HeaderRetryAfter = "Retry-After"
+
+	// Default retry after value in seconds
+	DefaultRetryAfterSeconds = "1"
+)
+
+// Rate limit error messages
+const (
+	ErrMsgRateLimitExceeded  = "Rate limit exceeded"
+	ErrCodeRateLimitExceeded = "RATE_LIMIT_EXCEEDED"
+)
+
+// Rate limit log messages
+const (
+	LogMsgRateLimitExceeded = "Rate limit exceeded for request"
 )

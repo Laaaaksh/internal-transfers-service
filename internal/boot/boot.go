@@ -92,9 +92,9 @@ func (a *App) logStartup() {
 	)
 }
 
-// initDatabase initializes the database connection
+// initDatabase initializes the database connection with retry support
 func (a *App) initDatabase(ctx context.Context) error {
-	db, err := database.Initialize(ctx, &a.Config.Database)
+	db, err := database.InitializeWithRetry(ctx, &a.Config.Database)
 	if err != nil {
 		logger.Fatal(constants.LogMsgFailedToInitDB, constants.LogKeyError, err)
 		return err
@@ -141,9 +141,10 @@ func (a *App) setupRouters() {
 func (a *App) createMainRouter() chi.Router {
 	router := chi.NewRouter()
 
-	// Apply middleware chain from interceptors package (with idempotency support)
+	// Apply middleware chain from interceptors package (with idempotency and rate limiting)
 	idempotencyRepo := a.Modules.Idempotency.GetRepository()
-	for _, mw := range interceptors.GetChiMiddlewareWithIdempotency(idempotencyRepo) {
+	rateLimitCfg := a.Config.RateLimit
+	for _, mw := range interceptors.GetChiMiddlewareWithConfig(idempotencyRepo, rateLimitCfg) {
 		router.Use(mw)
 	}
 

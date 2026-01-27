@@ -23,6 +23,7 @@ type Config struct {
 	Metrics     MetricsConfig     `mapstructure:"metrics"`
 	Idempotency IdempotencyConfig `mapstructure:"idempotency"`
 	Security    SecurityConfig    `mapstructure:"security"`
+	RateLimit   RateLimitConfig   `mapstructure:"rate_limit"`
 }
 
 // AppConfig holds application-level configuration
@@ -37,16 +38,43 @@ type AppConfig struct {
 
 // DatabaseConfig holds database connection configuration
 type DatabaseConfig struct {
-	Host            string `mapstructure:"host"`
-	Port            int    `mapstructure:"port"`
-	User            string `mapstructure:"user"`
-	Password        string `mapstructure:"password"`
-	Name            string `mapstructure:"name"`
-	SSLMode         string `mapstructure:"ssl_mode"`
-	MaxConnections  int32  `mapstructure:"max_connections"`
-	MinConnections  int32  `mapstructure:"min_connections"`
-	MaxConnLifetime string `mapstructure:"max_conn_lifetime"`
-	MaxConnIdleTime string `mapstructure:"max_conn_idle_time"`
+	Host            string              `mapstructure:"host"`
+	Port            int                 `mapstructure:"port"`
+	User            string              `mapstructure:"user"`
+	Password        string              `mapstructure:"password"`
+	Name            string              `mapstructure:"name"`
+	SSLMode         string              `mapstructure:"ssl_mode"`
+	MaxConnections  int32               `mapstructure:"max_connections"`
+	MinConnections  int32               `mapstructure:"min_connections"`
+	MaxConnLifetime string              `mapstructure:"max_conn_lifetime"`
+	MaxConnIdleTime string              `mapstructure:"max_conn_idle_time"`
+	Retry           DatabaseRetryConfig `mapstructure:"retry"`
+}
+
+// DatabaseRetryConfig holds database connection retry configuration
+type DatabaseRetryConfig struct {
+	Enabled        bool   `mapstructure:"enabled"`
+	MaxRetries     int    `mapstructure:"max_retries"`
+	InitialBackoff string `mapstructure:"initial_backoff"`
+	MaxBackoff     string `mapstructure:"max_backoff"`
+}
+
+// GetInitialBackoff returns the initial backoff duration
+func (c *DatabaseRetryConfig) GetInitialBackoff() time.Duration {
+	d, err := time.ParseDuration(c.InitialBackoff)
+	if err != nil {
+		return time.Second
+	}
+	return d
+}
+
+// GetMaxBackoff returns the max backoff duration
+func (c *DatabaseRetryConfig) GetMaxBackoff() time.Duration {
+	d, err := time.ParseDuration(c.MaxBackoff)
+	if err != nil {
+		return 30 * time.Second
+	}
+	return d
 }
 
 // LoggingConfig holds logging configuration
@@ -69,6 +97,13 @@ type IdempotencyConfig struct {
 // SecurityConfig holds security-related configuration
 type SecurityConfig struct {
 	CORSAllowOrigin string `mapstructure:"cors_allow_origin"`
+}
+
+// RateLimitConfig holds rate limiting configuration
+type RateLimitConfig struct {
+	Enabled        bool    `mapstructure:"enabled"`
+	RequestsPerSec float64 `mapstructure:"requests_per_second"`
+	BurstSize      int     `mapstructure:"burst_size"`
 }
 
 // C is the global configuration instance

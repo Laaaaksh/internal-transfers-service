@@ -4,6 +4,7 @@ package database
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/internal-transfers-service/internal/config"
 	"github.com/internal-transfers-service/internal/constants"
@@ -87,4 +88,93 @@ func (d *Database) GetStats() *pgxpool.Stat {
 		return d.pool.Stat()
 	}
 	return nil
+}
+
+// InitializeWithRetry attempts to connect to the database with exponential backoff.
+// If retry is disabled in config, it falls back to single attempt Initialize.
+func InitializeWithRetry(ctx context.Context, cfg *config.DatabaseConfig) (*Database, error) {
+	if !cfg.Retry.Enabled {
+		return Initialize(ctx, cfg)
+	}
+
+	return connectWithRetry(ctx, cfg)
+}
+
+// connectWithRetry implements the retry loop with exponential backoff
+func connectWithRetry(ctx context.Context, cfg *config.DatabaseConfig) (*Database, error) {
+	var lastErr error
+	backoff := cfg.Retry.GetInitialBackoff()
+	maxBackoff := cfg.Retry.GetMaxBackoff()
+
+	for attempt := 1; attempt <= cfg.Retry.MaxRetries; attempt++ {
+		logConnectionAttempt(attempt, cfg.Retry.MaxRetries)
+
+		db, err := Initialize(ctx, cfg)
+		if err == nil {
+			logConnectionSuccess(attempt)
+			return db, nil
+		}
+
+		lastErr = err
+		if attempt < cfg.Retry.MaxRetries {
+			logRetryWithBackoff(attempt, cfg.Retry.MaxRetries, backoff, err)
+			sleepWithContext(ctx, backoff)
+			backoff = calculateNextBackoff(backoff, maxBackoff)
+		}
+	}
+
+	logConnectionFailed(cfg.Retry.MaxRetries, lastErr)
+	return nil, fmt.Errorf(constants.ErrFmtDBConnectionFailedRetry, cfg.Retry.MaxRetries, lastErr)
+}
+
+// logConnectionAttempt logs the connection attempt
+func logConnectionAttempt(attempt, maxRetries int) {
+	logger.Info(constants.LogMsgDBConnectionAttempt,
+		constants.LogFieldAttempt, attempt,
+		constants.LogFieldMaxRetries, maxRetries,
+	)
+}
+
+// logConnectionSuccess logs successful connection
+func logConnectionSuccess(attempt int) {
+	logger.Info(constants.LogMsgDBConnectionSuccess,
+		constants.LogFieldAttempt, attempt,
+	)
+}
+
+// logRetryWithBackoff logs the retry attempt with backoff duration
+func logRetryWithBackoff(attempt, maxRetries int, backoff time.Duration, err error) {
+	logger.Warn(constants.LogMsgDBConnectionRetry,
+		constants.LogFieldAttempt, attempt,
+		constants.LogFieldMaxRetries, maxRetries,
+		constants.LogFieldNextBackoff, backoff.String(),
+		constants.LogKeyError, err,
+	)
+}
+
+// logConnectionFailed logs the final connection failure
+func logConnectionFailed(maxRetries int, err error) {
+	logger.Error(constants.LogMsgDBConnectionFailed,
+		constants.LogFieldMaxRetries, maxRetries,
+		constants.LogKeyError, err,
+	)
+}
+
+// sleepWithContext sleeps for the given duration or until context is cancelled
+func sleepWithContext(ctx context.Context, duration time.Duration) {
+	select {
+	case <-ctx.Done():
+		return
+	case <-time.After(duration):
+		return
+	}
+}
+
+// calculateNextBackoff doubles the backoff up to maxBackoff
+func calculateNextBackoff(current, max time.Duration) time.Duration {
+	next := current * 2
+	if next > max {
+		return max
+	}
+	return next
 }

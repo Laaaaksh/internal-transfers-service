@@ -22,6 +22,13 @@ min_connections = 5
 max_conn_lifetime = "1h"
 max_conn_idle_time = "30m"
 
+[database.retry]
+# Retry configuration for database connection on startup
+enabled = true
+max_retries = 5
+initial_backoff = "1s"
+max_backoff = "30s"
+
 [logging]
 level = "info"
 format = "json"
@@ -36,3 +43,10 @@ ttl = "24h"
 [security]
 # CORS origin - use specific origin in production, "*" for development
 cors_allow_origin = "${CORS_ALLOW_ORIGIN:-*}"
+
+[rate_limit]
+# Rate limiting configuration
+# Token bucket algorithm: allows bursts while enforcing average rate
+enabled = true
+requests_per_second = 100.0
+burst_size = 200

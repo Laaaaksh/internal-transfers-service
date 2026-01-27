@@ -18,6 +18,13 @@ min_connections = 10
 max_conn_lifetime = "30m"
 max_conn_idle_time = "10m"
 
+[database.retry]
+# More retries in prod for resilience
+enabled = true
+max_retries = 10
+initial_backoff = "1s"
+max_backoff = "30s"
+
 [logging]
 level = "info"
 format = "json"
@@ -32,3 +39,9 @@ ttl = "48h"
 # Production CORS - must be explicitly set via CORS_ALLOW_ORIGIN env var
 # Do NOT use "*" in production for financial APIs
 cors_allow_origin = "${CORS_ALLOW_ORIGIN}"
+
+[rate_limit]
+# Strict rate limiting for production - prevents API abuse
+enabled = true
+requests_per_second = 100.0
+burst_size = 200

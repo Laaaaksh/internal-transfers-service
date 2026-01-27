@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/internal-transfers-service/internal/config"
 	"github.com/internal-transfers-service/internal/constants"
 	"github.com/internal-transfers-service/internal/modules/idempotency"
 )
@@ -97,19 +98,27 @@ func GetChiMiddleware() []func(http.Handler) http.Handler {
 // 3. RecoveryMiddleware - Panic recovery (must be early to catch all panics)
 // 4. RequestIDMiddleware - Add request ID to response headers
 // 5. SecurityHeadersMiddleware - Add security headers early
-// 6. MaxBytesMiddleware - Limit body size before parsing (DoS protection)
-// 7. ContentTypeValidationMiddleware - Validate content-type before parsing
-// 8. TimeoutMiddleware - Request timeout protection
-// 9. MetricsMiddleware - Record metrics (after timeout to measure actual time)
-// 10. RequestLoggerMiddleware - Log requests (captures response details)
-// 11. IdempotencyMiddleware - Handle idempotent requests last
+// 6. RateLimitMiddleware - Rate limiting early (before heavy processing)
+// 7. MaxBytesMiddleware - Limit body size before parsing (DoS protection)
+// 8. ContentTypeValidationMiddleware - Validate content-type before parsing
+// 9. TimeoutMiddleware - Request timeout protection
+// 10. MetricsMiddleware - Record metrics (after timeout to measure actual time)
+// 11. RequestLoggerMiddleware - Log requests (captures response details)
+// 12. IdempotencyMiddleware - Handle idempotent requests last
 func GetChiMiddlewareWithIdempotency(idempotencyRepo idempotency.IRepository) []func(http.Handler) http.Handler {
+	return GetChiMiddlewareWithConfig(idempotencyRepo, config.RateLimitConfig{})
+}
+
+// GetChiMiddlewareWithConfig returns the production-ready middleware chain with full config.
+// Use this when rate limiting configuration is available.
+func GetChiMiddlewareWithConfig(idempotencyRepo idempotency.IRepository, rateLimitCfg config.RateLimitConfig) []func(http.Handler) http.Handler {
 	return []func(http.Handler) http.Handler{
 		middleware.RequestID,
 		middleware.RealIP,
 		RecoveryMiddleware,
 		RequestIDMiddleware,
 		SecurityHeadersMiddleware,
+		RateLimitMiddleware(rateLimitCfg),
 		MaxBytesMiddleware,
 		ContentTypeValidationMiddleware,
 		TimeoutMiddleware(DefaultRequestTimeout),
