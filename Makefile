@@ -155,20 +155,30 @@ migrate-version:
 
 ## ==================== Mock Generation ====================
 
-# Generate all mocks
+# Generate all mocks (8 files total)
 mock: mock-clean
 	@echo "$(GREEN)Generating mocks...$(NC)"
+	@echo "  Generating account mocks..."
 	@mockgen -source=internal/modules/account/repository.go -destination=internal/modules/account/mock/mock_repository.go -package=mock
 	@mockgen -source=internal/modules/account/core.go -destination=internal/modules/account/mock/mock_core.go -package=mock
+	@echo "  Generating transaction mocks..."
 	@mockgen -source=internal/modules/transaction/repository.go -destination=internal/modules/transaction/mock/mock_repository.go -package=mock
 	@mockgen -source=internal/modules/transaction/core.go -destination=internal/modules/transaction/mock/mock_core.go -package=mock
-	@echo "$(GREEN)Mocks generated successfully$(NC)"
+	@echo "  Generating idempotency mocks..."
+	@mockgen -source=internal/modules/idempotency/repository.go -destination=internal/modules/idempotency/mock/mock_repository.go -package=mock
+	@echo "  Generating database mocks..."
+	@mockgen -source=pkg/database/pool.go -destination=pkg/database/mock/mock_pool.go -package=mock
+	@mockgen -destination=pkg/database/mock/mock_row.go -package=mock github.com/jackc/pgx/v5 Row
+	@mockgen -destination=pkg/database/mock/mock_tx.go -package=mock github.com/jackc/pgx/v5 Tx
+	@echo "$(GREEN)Mocks generated successfully (8 files)$(NC)"
 
 # Clean generated mocks (removes all .go files in mock directories)
 mock-clean:
 	@echo "$(YELLOW)Cleaning generated mocks...$(NC)"
 	@rm -f internal/modules/account/mock/*.go
 	@rm -f internal/modules/transaction/mock/*.go
+	@rm -f internal/modules/idempotency/mock/*.go
+	@rm -f pkg/database/mock/*.go
 
 ## ==================== Dependencies ====================
 
