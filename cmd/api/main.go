@@ -24,14 +24,11 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Load configuration
-	cfg, err := config.Load("config", "config")
+	// Load configuration based on APP_ENV environment variable
+	// Loads default.toml first, then merges environment-specific overrides
+	cfg, err := config.Load()
 	if err != nil {
-		// Fallback to defaults if config file not found
-		cfg, _ = config.Load(".", "config")
-		if cfg == nil {
-			panic("failed to load configuration: " + err.Error())
-		}
+		panic("failed to load configuration: " + err.Error())
 	}
 
 	// Initialize logger

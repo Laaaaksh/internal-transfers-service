@@ -5,15 +5,22 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/spf13/viper"
+	pkgconfig "github.com/internal-transfers-service/pkg/config"
+)
+
+// Environment constants
+const (
+	EnvDev  = "dev"
+	EnvTest = "test"
+	EnvProd = "prod"
 )
 
 // Config holds all application configuration
 type Config struct {
-	App         AppConfig      `mapstructure:"app"`
-	Database    DatabaseConfig `mapstructure:"database"`
-	Logging     LoggingConfig  `mapstructure:"logging"`
-	Metrics     MetricsConfig  `mapstructure:"metrics"`
+	App         AppConfig         `mapstructure:"app"`
+	Database    DatabaseConfig    `mapstructure:"database"`
+	Logging     LoggingConfig     `mapstructure:"logging"`
+	Metrics     MetricsConfig     `mapstructure:"metrics"`
 	Idempotency IdempotencyConfig `mapstructure:"idempotency"`
 }
 
@@ -61,66 +68,41 @@ type IdempotencyConfig struct {
 // C is the global configuration instance
 var C *Config
 
-// Load loads configuration from the specified path
-func Load(configPath string, configName string) (*Config, error) {
-	v := viper.New()
+// Load loads configuration for the specified environment.
+// It first loads default.toml, then merges environment-specific overrides.
+// Environment is determined by APP_ENV env var or defaults to "dev".
+func Load() (*Config, error) {
+	env := pkgconfig.GetEnv()
+	return LoadForEnv(env)
+}
 
-	v.SetConfigName(configName)
-	v.SetConfigType("toml")
-	v.AddConfigPath(configPath)
-
-	// Set defaults
-	setDefaults(v)
-
-	// Enable environment variable overrides
-	v.SetEnvPrefix("APP")
-	v.AutomaticEnv()
-
-	if err := v.ReadInConfig(); err != nil {
-		return nil, fmt.Errorf("failed to read config file: %w", err)
-	}
+// LoadForEnv loads configuration for a specific environment.
+// It first loads default.toml, then merges the env-specific config (e.g., dev.toml).
+func LoadForEnv(env string) (*Config, error) {
+	loader := pkgconfig.NewDefaultConfig()
 
 	var cfg Config
-	if err := v.Unmarshal(&cfg); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
+	if err := loader.Load(env, &cfg, "APP"); err != nil {
+		return nil, fmt.Errorf("failed to load config for env %s: %w", env, err)
 	}
 
 	C = &cfg
 	return &cfg, nil
 }
 
-// setDefaults sets default configuration values
-func setDefaults(v *viper.Viper) {
-	// App defaults
-	v.SetDefault("app.env", "dev")
-	v.SetDefault("app.name", "internal-transfers-service")
-	v.SetDefault("app.port", ":8080")
-	v.SetDefault("app.ops_port", ":8081")
-	v.SetDefault("app.shutdown_delay", 5)
-	v.SetDefault("app.shutdown_timeout", 30)
+// LoadFromPath loads configuration from a custom path (for backward compatibility).
+// Deprecated: Use Load() or LoadForEnv() instead.
+func LoadFromPath(configPath string, env string) (*Config, error) {
+	opts := pkgconfig.NewOptions(pkgconfig.DefaultConfigType, configPath, pkgconfig.DefaultConfigFileName)
+	loader := pkgconfig.NewConfig(opts)
 
-	// Database defaults
-	v.SetDefault("database.host", "localhost")
-	v.SetDefault("database.port", 5432)
-	v.SetDefault("database.user", "postgres")
-	v.SetDefault("database.password", "postgres")
-	v.SetDefault("database.name", "transfers")
-	v.SetDefault("database.ssl_mode", "disable")
-	v.SetDefault("database.max_connections", 25)
-	v.SetDefault("database.min_connections", 5)
-	v.SetDefault("database.max_conn_lifetime", "1h")
-	v.SetDefault("database.max_conn_idle_time", "30m")
+	var cfg Config
+	if err := loader.Load(env, &cfg, "APP"); err != nil {
+		return nil, fmt.Errorf("failed to load config from %s for env %s: %w", configPath, env, err)
+	}
 
-	// Logging defaults
-	v.SetDefault("logging.level", "info")
-	v.SetDefault("logging.format", "json")
-
-	// Metrics defaults
-	v.SetDefault("metrics.enabled", true)
-	v.SetDefault("metrics.path", "/metrics")
-
-	// Idempotency defaults
-	v.SetDefault("idempotency.ttl", "24h")
+	C = &cfg
+	return &cfg, nil
 }
 
 // GetConnectionString returns the PostgreSQL connection string

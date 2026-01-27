@@ -1,0 +1,29 @@
+# Internal Transfers Service - Production Configuration
+# Overrides for production environment
+
+[app]
+env = "prod"
+shutdown_delay = 10
+shutdown_timeout = 60
+
+[database]
+host = "${DB_HOST}"
+port = 5432
+user = "${DB_USER}"
+password = "${DB_PASSWORD}"
+name = "${DB_NAME:-transfers}"
+ssl_mode = "require"
+max_connections = 50
+min_connections = 10
+max_conn_lifetime = "30m"
+max_conn_idle_time = "10m"
+
+[logging]
+level = "info"
+format = "json"
+
+[metrics]
+enabled = true
+
+[idempotency]
+ttl = "48h"

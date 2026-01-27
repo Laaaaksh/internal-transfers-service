@@ -1,0 +1,22 @@
+# Internal Transfers Service - Development Configuration
+# Overrides for local development environment
+
+[app]
+env = "dev"
+
+[database]
+host = "localhost"
+port = 5432
+user = "postgres"
+password = "postgres"
+name = "transfers_dev"
+ssl_mode = "disable"
+max_connections = 10
+min_connections = 2
+
+[logging]
+level = "debug"
+format = "console"
+
+[metrics]
+enabled = true
