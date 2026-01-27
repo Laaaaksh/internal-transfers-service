@@ -11,6 +11,7 @@ import (
 	"github.com/internal-transfers-service/internal/modules/account"
 	"github.com/internal-transfers-service/internal/modules/transaction/entities"
 	"github.com/internal-transfers-service/pkg/apperror"
+	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 )
 
@@ -65,26 +66,69 @@ func GetCore() ICore {
 
 // Transfer executes a fund transfer between two accounts
 func (c *Core) Transfer(ctx context.Context, req *entities.TransferRequest) (*entities.TransferResponse, apperror.IError) {
-	// Validate same account transfer
+	amount, appErr := c.validateTransferRequest(req)
+	if appErr != nil {
+		return nil, appErr
+	}
+
+	tx, err := c.beginTransaction(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	committed := false
+	defer c.rollbackIfNotCommitted(ctx, tx, &committed)
+
+	sourceAccount, destAccount, appErr := c.lockAccountsInOrder(ctx, tx, req)
+	if appErr != nil {
+		return nil, appErr
+	}
+
+	if appErr := c.validateSufficientBalance(ctx, sourceAccount, amount, req.SourceAccountID); appErr != nil {
+		return nil, appErr
+	}
+
+	txRecord, appErr := c.executeTransfer(ctx, tx, sourceAccount, destAccount, amount, req)
+	if appErr != nil {
+		return nil, appErr
+	}
+
+	if appErr := c.commitTransaction(ctx, tx); appErr != nil {
+		return nil, appErr
+	}
+	committed = true
+
+	c.logTransferCompleted(ctx, txRecord, req, amount)
+
+	return &entities.TransferResponse{
+		TransactionID: txRecord.ID.String(),
+	}, nil
+}
+
+// validateTransferRequest validates the transfer request and returns the parsed amount
+func (c *Core) validateTransferRequest(req *entities.TransferRequest) (decimal.Decimal, apperror.IError) {
 	if req.SourceAccountID == req.DestinationAccountID {
-		return nil, apperror.NewWithMessage(apperror.CodeBadRequest, ErrSameAccountTransfer, apperror.MsgSameAccountTransfer).
+		return decimal.Zero, apperror.NewWithMessage(apperror.CodeBadRequest, ErrSameAccountTransfer, apperror.MsgSameAccountTransfer).
 			WithField(apperror.FieldSourceAccount, req.SourceAccountID).
 			WithField(apperror.FieldDestAccount, req.DestinationAccountID)
 	}
 
-	// Parse and validate amount
 	amount, err := decimal.NewFromString(req.Amount)
 	if err != nil {
-		return nil, apperror.NewWithMessage(apperror.CodeBadRequest, ErrInvalidDecimalAmt, apperror.MsgInvalidAmount).
+		return decimal.Zero, apperror.NewWithMessage(apperror.CodeBadRequest, ErrInvalidDecimalAmt, apperror.MsgInvalidAmount).
 			WithField(apperror.FieldAmount, req.Amount)
 	}
 
 	if amount.LessThanOrEqual(decimal.Zero) {
-		return nil, apperror.NewWithMessage(apperror.CodeBadRequest, ErrInvalidAmount, apperror.MsgInvalidAmount).
+		return decimal.Zero, apperror.NewWithMessage(apperror.CodeBadRequest, ErrInvalidAmount, apperror.MsgInvalidAmount).
 			WithField(apperror.FieldAmount, req.Amount)
 	}
 
-	// Begin transaction
+	return amount, nil
+}
+
+// beginTransaction starts a new database transaction
+func (c *Core) beginTransaction(ctx context.Context) (pgx.Tx, apperror.IError) {
 	tx, err := c.txRepo.BeginTx(ctx)
 	if err != nil {
 		logger.Ctx(ctx).Errorw(constants.LogMsgFailedToBeginTx,
@@ -92,70 +136,96 @@ func (c *Core) Transfer(ctx context.Context, req *entities.TransferRequest) (*en
 		)
 		return nil, apperror.New(apperror.CodeInternalError, err)
 	}
+	return tx, nil
+}
 
-	// Use committed flag to ensure rollback on any error path
-	committed := false
-	defer func() {
-		if !committed {
-			_ = tx.Rollback(ctx)
-		}
-	}()
+// rollbackIfNotCommitted rolls back the transaction if not committed
+func (c *Core) rollbackIfNotCommitted(ctx context.Context, tx pgx.Tx, committed *bool) {
+	if !*committed {
+		_ = tx.Rollback(ctx)
+	}
+}
 
-	// Lock accounts in consistent order to prevent deadlocks
-	// Always lock the account with the smaller ID first
+// lockAccountsInOrder locks accounts in consistent order to prevent deadlocks
+func (c *Core) lockAccountsInOrder(ctx context.Context, tx pgx.Tx, req *entities.TransferRequest) (*account.Account, *account.Account, apperror.IError) {
 	firstAccountID, secondAccountID := orderAccountIDs(req.SourceAccountID, req.DestinationAccountID)
 
-	// Lock first account
 	firstAccount, err := c.accountRepo.GetForUpdate(ctx, tx, firstAccountID)
 	if err != nil {
-		return nil, c.handleAccountError(err, firstAccountID, req.SourceAccountID)
+		return nil, nil, c.handleAccountError(err, firstAccountID, req.SourceAccountID)
 	}
 
-	// Lock second account
 	secondAccount, err := c.accountRepo.GetForUpdate(ctx, tx, secondAccountID)
 	if err != nil {
-		return nil, c.handleAccountError(err, secondAccountID, req.SourceAccountID)
+		return nil, nil, c.handleAccountError(err, secondAccountID, req.SourceAccountID)
 	}
 
-	// Determine which is source and which is destination
 	sourceAccount, destAccount := assignSourceAndDest(firstAccountID, req.SourceAccountID, firstAccount, secondAccount)
+	return sourceAccount, destAccount, nil
+}
 
-	// Check sufficient balance
+// validateSufficientBalance checks if source account has sufficient balance
+func (c *Core) validateSufficientBalance(ctx context.Context, sourceAccount *account.Account, amount decimal.Decimal, sourceAccountID int64) apperror.IError {
 	if sourceAccount.Balance.LessThan(amount) {
 		logger.Ctx(ctx).Warnw(constants.LogMsgInsufficientBalance,
-			constants.LogKeySourceAccount, req.SourceAccountID,
+			constants.LogKeySourceAccount, sourceAccountID,
 			constants.LogFieldCurrentBalance, sourceAccount.Balance.String(),
 			constants.LogFieldRequestedAmt, amount.String(),
 		)
-		return nil, apperror.NewWithMessage(apperror.CodeInsufficientFunds, ErrInsufficientBalance, apperror.MsgInsufficientBalance).
-			WithField(apperror.FieldSourceAccount, req.SourceAccountID).
+		return apperror.NewWithMessage(apperror.CodeInsufficientFunds, ErrInsufficientBalance, apperror.MsgInsufficientBalance).
+			WithField(apperror.FieldSourceAccount, sourceAccountID).
 			WithField(constants.LogFieldCurrentBalance, sourceAccount.Balance.String()).
 			WithField(constants.LogFieldRequestedAmt, amount.String())
 	}
+	return nil
+}
 
-	// Calculate new balances
-	newSourceBalance := sourceAccount.Balance.Sub(amount)
-	newDestBalance := destAccount.Balance.Add(amount)
+// executeTransfer updates balances and creates the transaction record
+func (c *Core) executeTransfer(ctx context.Context, tx pgx.Tx, sourceAccount, destAccount *account.Account, amount decimal.Decimal, req *entities.TransferRequest) (*Transaction, apperror.IError) {
+	if appErr := c.updateSourceBalance(ctx, tx, sourceAccount, amount); appErr != nil {
+		return nil, appErr
+	}
 
-	// Update source account balance
-	if err := c.accountRepo.UpdateBalance(ctx, tx, sourceAccount.AccountID, newSourceBalance); err != nil {
+	if appErr := c.updateDestBalance(ctx, tx, destAccount, amount); appErr != nil {
+		return nil, appErr
+	}
+
+	txRecord, appErr := c.createTransactionRecord(ctx, tx, req, amount)
+	if appErr != nil {
+		return nil, appErr
+	}
+
+	return txRecord, nil
+}
+
+// updateSourceBalance debits the source account
+func (c *Core) updateSourceBalance(ctx context.Context, tx pgx.Tx, sourceAccount *account.Account, amount decimal.Decimal) apperror.IError {
+	newBalance := sourceAccount.Balance.Sub(amount)
+	if err := c.accountRepo.UpdateBalance(ctx, tx, sourceAccount.AccountID, newBalance); err != nil {
 		logger.Ctx(ctx).Errorw(constants.LogMsgFailedToUpdateSourceBal,
 			constants.LogKeyAccountID, sourceAccount.AccountID,
 			constants.LogKeyError, err,
 		)
-		return nil, apperror.New(apperror.CodeInternalError, err)
+		return apperror.New(apperror.CodeInternalError, err)
 	}
+	return nil
+}
 
-	// Update destination account balance
-	if err := c.accountRepo.UpdateBalance(ctx, tx, destAccount.AccountID, newDestBalance); err != nil {
+// updateDestBalance credits the destination account
+func (c *Core) updateDestBalance(ctx context.Context, tx pgx.Tx, destAccount *account.Account, amount decimal.Decimal) apperror.IError {
+	newBalance := destAccount.Balance.Add(amount)
+	if err := c.accountRepo.UpdateBalance(ctx, tx, destAccount.AccountID, newBalance); err != nil {
 		logger.Ctx(ctx).Errorw(constants.LogMsgFailedToUpdateDestBal,
 			constants.LogKeyAccountID, destAccount.AccountID,
 			constants.LogKeyError, err,
 		)
-		return nil, apperror.New(apperror.CodeInternalError, err)
+		return apperror.New(apperror.CodeInternalError, err)
 	}
+	return nil
+}
 
-	// Create transaction record
+// createTransactionRecord creates the transaction audit record
+func (c *Core) createTransactionRecord(ctx context.Context, tx pgx.Tx, req *entities.TransferRequest, amount decimal.Decimal) (*Transaction, apperror.IError) {
 	txRecord := &Transaction{
 		SourceAccountID:      req.SourceAccountID,
 		DestinationAccountID: req.DestinationAccountID,
@@ -169,25 +239,28 @@ func (c *Core) Transfer(ctx context.Context, req *entities.TransferRequest) (*en
 		return nil, apperror.New(apperror.CodeInternalError, err)
 	}
 
-	// Commit transaction
+	return txRecord, nil
+}
+
+// commitTransaction commits the database transaction
+func (c *Core) commitTransaction(ctx context.Context, tx pgx.Tx) apperror.IError {
 	if err := tx.Commit(ctx); err != nil {
 		logger.Ctx(ctx).Errorw(constants.LogMsgFailedToCommitTx,
 			constants.LogKeyError, err,
 		)
-		return nil, apperror.New(apperror.CodeInternalError, err)
+		return apperror.New(apperror.CodeInternalError, err)
 	}
-	committed = true
+	return nil
+}
 
+// logTransferCompleted logs successful transfer completion
+func (c *Core) logTransferCompleted(ctx context.Context, txRecord *Transaction, req *entities.TransferRequest, amount decimal.Decimal) {
 	logger.Ctx(ctx).Infow(constants.LogMsgTransferCompleted,
 		constants.LogFieldTransactionID, txRecord.ID.String(),
 		constants.LogKeySourceAccount, req.SourceAccountID,
 		constants.LogKeyDestAccount, req.DestinationAccountID,
 		constants.LogKeyAmount, amount.String(),
 	)
-
-	return &entities.TransferResponse{
-		TransactionID: txRecord.ID.String(),
-	}, nil
 }
 
 // orderAccountIDs returns account IDs in ascending order for consistent locking

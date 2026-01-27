@@ -1,5 +1,6 @@
 # Binaries
 bin/
+/api
 *.exe
 *.exe~
 *.dll
@@ -49,3 +50,6 @@ temp/
 
 # Memory Bank (project documentation for AI assistants)
 memory-bank/
+
+# Exercise description (should not be in public repo)
+httpClient

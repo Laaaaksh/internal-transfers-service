@@ -1,115 +1,255 @@
 # Internal Transfers Service Makefile
 
-.PHONY: all build run test test-coverage lint clean docker-up docker-down migrate-up migrate-down mock help
+.PHONY: all build run test test-coverage test-short lint clean docker-up docker-down docker-status \
+        migrate-up migrate-down migrate-create mock mock-clean deps deps-install fmt verify help setup
 
 # Variables
 BINARY_NAME=internal-transfers-service
 BUILD_DIR=bin
 MIGRATION_DIR=internal/database/migrations
-DB_URL=postgres://postgres:postgres@localhost:5432/transfers?sslmode=disable
+DB_HOST ?= localhost
+DB_PORT ?= 5432
+DB_USER ?= postgres
+DB_PASSWORD ?= postgres
+DB_NAME ?= transfers
+DB_URL=postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=disable
+
+# Colors for output
+GREEN  := \033[0;32m
+YELLOW := \033[0;33m
+RED    := \033[0;31m
+NC     := \033[0m # No Color
 
 # Default target
 all: lint test build
 
+## ==================== Build & Run ====================
+
 # Build the application
 build:
-	@echo "Building $(BINARY_NAME)..."
+	@echo "$(GREEN)Building $(BINARY_NAME)...$(NC)"
+	@mkdir -p $(BUILD_DIR)
 	@go build -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/api
+	@echo "$(GREEN)Build complete: $(BUILD_DIR)/$(BINARY_NAME)$(NC)"
 
 # Run the application
 run:
-	@echo "Running $(BINARY_NAME)..."
+	@echo "$(GREEN)Running $(BINARY_NAME)...$(NC)"
 	@go run ./cmd/api
 
-# Run tests
+# Run the application with hot reload (requires air: go install github.com/air-verse/air@latest)
+run-dev:
+	@echo "$(GREEN)Running $(BINARY_NAME) with hot reload...$(NC)"
+	@air
+
+## ==================== Testing ====================
+
+# Run all tests with verbose output
 test:
-	@echo "Running tests..."
+	@echo "$(GREEN)Running tests...$(NC)"
 	@go test -v -race ./...
+
+# Run tests without verbose (faster output)
+test-short:
+	@echo "$(GREEN)Running tests (short)...$(NC)"
+	@go test -race ./...
 
 # Run tests with coverage
 test-coverage:
-	@echo "Running tests with coverage..."
+	@echo "$(GREEN)Running tests with coverage...$(NC)"
 	@go test -v -race -coverprofile=coverage.out ./...
 	@go tool cover -html=coverage.out -o coverage.html
-	@echo "Coverage report generated: coverage.html"
+	@go tool cover -func=coverage.out | tail -1
+	@echo "$(GREEN)Coverage report generated: coverage.html$(NC)"
+
+## ==================== Code Quality ====================
 
 # Run linter
 lint:
-	@echo "Running linter..."
+	@echo "$(GREEN)Running linter...$(NC)"
 	@golangci-lint run ./...
+
+# Format code
+fmt:
+	@echo "$(GREEN)Formatting code...$(NC)"
+	@gofmt -s -w .
+	@goimports -w . 2>/dev/null || true
+
+# Verify dependencies
+verify:
+	@echo "$(GREEN)Verifying dependencies...$(NC)"
+	@go mod verify
+
+## ==================== Clean ====================
 
 # Clean build artifacts
 clean:
-	@echo "Cleaning..."
+	@echo "$(YELLOW)Cleaning build artifacts...$(NC)"
 	@rm -rf $(BUILD_DIR)
 	@rm -f coverage.out coverage.html
 
+# Clean all including mocks
+clean-all: clean mock-clean
+	@echo "$(YELLOW)All artifacts cleaned$(NC)"
+
+## ==================== Docker ====================
+
 # Start Docker containers
 docker-up:
-	@echo "Starting Docker containers..."
+	@echo "$(GREEN)Starting Docker containers...$(NC)"
 	@docker-compose -f deployment/dev/docker-compose.yml up -d
+	@echo "$(GREEN)Waiting for PostgreSQL to be ready...$(NC)"
+	@sleep 3
+	@make docker-status
 
 # Stop Docker containers
 docker-down:
-	@echo "Stopping Docker containers..."
+	@echo "$(YELLOW)Stopping Docker containers...$(NC)"
 	@docker-compose -f deployment/dev/docker-compose.yml down
+
+# Stop Docker containers and remove volumes
+docker-clean:
+	@echo "$(RED)Stopping Docker containers and removing volumes...$(NC)"
+	@docker-compose -f deployment/dev/docker-compose.yml down -v
+
+# Show Docker container status
+docker-status:
+	@echo "$(GREEN)Docker container status:$(NC)"
+	@docker-compose -f deployment/dev/docker-compose.yml ps
+
+# View PostgreSQL logs
+docker-logs:
+	@docker-compose -f deployment/dev/docker-compose.yml logs -f postgres
+
+## ==================== Database ====================
 
 # Run database migrations up
 migrate-up:
-	@echo "Running migrations..."
+	@echo "$(GREEN)Running migrations...$(NC)"
 	@migrate -path $(MIGRATION_DIR) -database "$(DB_URL)" up
+	@echo "$(GREEN)Migrations complete$(NC)"
 
-# Run database migrations down
+# Run database migrations down (rollback all)
 migrate-down:
-	@echo "Rolling back migrations..."
-	@migrate -path $(MIGRATION_DIR) -database "$(DB_URL)" down
+	@echo "$(YELLOW)Rolling back all migrations...$(NC)"
+	@migrate -path $(MIGRATION_DIR) -database "$(DB_URL)" down -all
+
+# Rollback one migration
+migrate-down-one:
+	@echo "$(YELLOW)Rolling back one migration...$(NC)"
+	@migrate -path $(MIGRATION_DIR) -database "$(DB_URL)" down 1
+
+# Force set migration version (use with caution)
+migrate-force:
+	@read -p "Enter version to force: " version; \
+	migrate -path $(MIGRATION_DIR) -database "$(DB_URL)" force $$version
 
 # Create a new migration
 migrate-create:
 	@read -p "Enter migration name: " name; \
 	migrate create -ext sql -dir $(MIGRATION_DIR) -seq $$name
 
-# Generate mocks
-mock:
-	@echo "Generating mocks..."
-	@mockgen -source=internal/modules/account/repository.go -destination=internal/modules/account/mock/repository.go -package=mock
-	@mockgen -source=internal/modules/account/core.go -destination=internal/modules/account/mock/core.go -package=mock
-	@mockgen -source=internal/modules/transaction/repository.go -destination=internal/modules/transaction/mock/repository.go -package=mock
-	@mockgen -source=internal/modules/transaction/core.go -destination=internal/modules/transaction/mock/core.go -package=mock
+# Show current migration version
+migrate-version:
+	@migrate -path $(MIGRATION_DIR) -database "$(DB_URL)" version
 
-# Install dependencies
+## ==================== Mock Generation ====================
+
+# Generate all mocks
+mock: mock-clean
+	@echo "$(GREEN)Generating mocks...$(NC)"
+	@mockgen -source=internal/modules/account/repository.go -destination=internal/modules/account/mock/mock_repository.go -package=mock
+	@mockgen -source=internal/modules/account/core.go -destination=internal/modules/account/mock/mock_core.go -package=mock
+	@mockgen -source=internal/modules/transaction/repository.go -destination=internal/modules/transaction/mock/mock_repository.go -package=mock
+	@mockgen -source=internal/modules/transaction/core.go -destination=internal/modules/transaction/mock/mock_core.go -package=mock
+	@echo "$(GREEN)Mocks generated successfully$(NC)"
+
+# Clean generated mocks (removes all .go files in mock directories)
+mock-clean:
+	@echo "$(YELLOW)Cleaning generated mocks...$(NC)"
+	@rm -f internal/modules/account/mock/*.go
+	@rm -f internal/modules/transaction/mock/*.go
+
+## ==================== Dependencies ====================
+
+# Download and tidy dependencies
 deps:
-	@echo "Installing dependencies..."
+	@echo "$(GREEN)Downloading dependencies...$(NC)"
 	@go mod download
 	@go mod tidy
 
-# Format code
-fmt:
-	@echo "Formatting code..."
-	@gofmt -s -w .
+# Install development tools
+deps-install:
+	@echo "$(GREEN)Installing development tools...$(NC)"
+	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	@go install go.uber.org/mock/mockgen@latest
+	@go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+	@go install golang.org/x/tools/cmd/goimports@latest
+	@echo "$(GREEN)Development tools installed$(NC)"
 
-# Verify dependencies
-verify:
-	@echo "Verifying dependencies..."
-	@go mod verify
+## ==================== Setup (First Time) ====================
+
+# Full setup for first-time development
+setup: deps-install deps docker-up
+	@echo "$(GREEN)Waiting for database to be ready...$(NC)"
+	@sleep 5
+	@make migrate-up
+	@make mock
+	@echo ""
+	@echo "$(GREEN)============================================$(NC)"
+	@echo "$(GREEN)Setup complete! You can now run:$(NC)"
+	@echo "$(GREEN)  make run      - Start the service$(NC)"
+	@echo "$(GREEN)  make test     - Run tests$(NC)"
+	@echo "$(GREEN)============================================$(NC)"
+
+## ==================== Help ====================
 
 # Show help
 help:
-	@echo "Available targets:"
-	@echo "  all           - Run lint, test, and build"
-	@echo "  build         - Build the application"
-	@echo "  run           - Run the application"
-	@echo "  test          - Run tests"
-	@echo "  test-coverage - Run tests with coverage report"
-	@echo "  lint          - Run linter"
-	@echo "  clean         - Clean build artifacts"
-	@echo "  docker-up     - Start Docker containers"
-	@echo "  docker-down   - Stop Docker containers"
-	@echo "  migrate-up    - Run database migrations"
-	@echo "  migrate-down  - Rollback database migrations"
-	@echo "  migrate-create- Create a new migration"
-	@echo "  mock          - Generate mocks"
-	@echo "  deps          - Install dependencies"
-	@echo "  fmt           - Format code"
-	@echo "  verify        - Verify dependencies"
-	@echo "  help          - Show this help message"
+	@echo ""
+	@echo "$(GREEN)Internal Transfers Service - Makefile Commands$(NC)"
+	@echo ""
+	@echo "$(YELLOW)Build & Run:$(NC)"
+	@echo "  make build         - Build the application binary"
+	@echo "  make run           - Run the application"
+	@echo "  make run-dev       - Run with hot reload (requires 'air')"
+	@echo ""
+	@echo "$(YELLOW)Testing:$(NC)"
+	@echo "  make test          - Run all tests with verbose output"
+	@echo "  make test-short    - Run tests without verbose"
+	@echo "  make test-coverage - Run tests with coverage report"
+	@echo ""
+	@echo "$(YELLOW)Code Quality:$(NC)"
+	@echo "  make lint          - Run golangci-lint"
+	@echo "  make fmt           - Format code with gofmt and goimports"
+	@echo "  make verify        - Verify go.mod dependencies"
+	@echo ""
+	@echo "$(YELLOW)Docker:$(NC)"
+	@echo "  make docker-up     - Start PostgreSQL container"
+	@echo "  make docker-down   - Stop PostgreSQL container"
+	@echo "  make docker-clean  - Stop and remove volumes"
+	@echo "  make docker-status - Show container status"
+	@echo "  make docker-logs   - View PostgreSQL logs"
+	@echo ""
+	@echo "$(YELLOW)Database:$(NC)"
+	@echo "  make migrate-up      - Run all pending migrations"
+	@echo "  make migrate-down    - Rollback all migrations"
+	@echo "  make migrate-down-one- Rollback one migration"
+	@echo "  make migrate-create  - Create new migration files"
+	@echo "  make migrate-version - Show current migration version"
+	@echo ""
+	@echo "$(YELLOW)Mocks:$(NC)"
+	@echo "  make mock          - Clean and regenerate all mocks"
+	@echo "  make mock-clean    - Remove generated mock files"
+	@echo ""
+	@echo "$(YELLOW)Dependencies:$(NC)"
+	@echo "  make deps          - Download and tidy go modules"
+	@echo "  make deps-install  - Install development tools"
+	@echo ""
+	@echo "$(YELLOW)Setup:$(NC)"
+	@echo "  make setup         - Full first-time setup (tools, deps, db, mocks)"
+	@echo ""
+	@echo "$(YELLOW)Clean:$(NC)"
+	@echo "  make clean         - Clean build artifacts"
+	@echo "  make clean-all     - Clean all including mocks"
+	@echo ""
