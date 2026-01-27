@@ -48,6 +48,9 @@ build/
 tmp/
 temp/
 
+# Generated mocks (regenerated via 'make mock')
+**/mock/mock_*.go
+
 # Memory Bank (project documentation for AI assistants)
 memory-bank/
 
