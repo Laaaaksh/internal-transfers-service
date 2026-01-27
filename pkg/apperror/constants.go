@@ -30,4 +30,11 @@ const (
 	MsgInvalidAmount       = "The amount must be a positive number."
 	MsgSameAccountTransfer = "Source and destination accounts must be different."
 	MsgServiceUnavailable  = "Service is temporarily unavailable."
+
+	// More descriptive validation messages
+	MsgInvalidAccountID      = "Account ID must be a positive integer."
+	MsgInvalidInitialBalance = "Initial balance must be a valid non-negative decimal number."
+	MsgInvalidDecimalFormat  = "The provided value is not a valid decimal number."
+	MsgNegativeBalance       = "Balance cannot be negative."
+	MsgInvalidJSONBody       = "Invalid JSON in request body."
 )

@@ -145,6 +145,16 @@ const (
 	LogMsgFailedToGetAccount     = "Failed to get account"
 	LogMsgFailedToGetForUpdate   = "Failed to get account for update"
 	LogMsgFailedToUpdateBalance  = "Failed to update account balance"
+
+	// Validation debug log messages
+	LogMsgInvalidAccountIDCreate  = "Invalid account ID in create request"
+	LogMsgInvalidAccountIDGet     = "Invalid account ID in get request"
+	LogMsgInvalidDecimalFormat    = "Invalid decimal format for initial balance"
+	LogMsgNegativeBalanceProvided = "Negative initial balance provided"
+	LogMsgAccountNotFoundDebug    = "Account not found"
+
+	// HTTP handler log messages
+	LogMsgRequestFailed = "Request failed"
 )
 
 // Log field key constants

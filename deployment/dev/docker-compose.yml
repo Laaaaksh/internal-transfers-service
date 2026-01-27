@@ -1,4 +1,5 @@
-version: '3.8'
+# Internal Transfers Service - Local Development
+# Usage: docker-compose -f deployment/dev/docker-compose.yml up -d
 
 services:
   postgres:

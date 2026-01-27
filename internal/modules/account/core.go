@@ -63,19 +63,29 @@ func GetCore() ICore {
 func (c *Core) Create(ctx context.Context, req *entities.CreateAccountRequest) apperror.IError {
 	// Validate account ID
 	if req.AccountID <= 0 {
-		return apperror.New(apperror.CodeBadRequest, ErrInvalidAccountID).
+		logger.Ctx(ctx).Debugw(constants.LogMsgInvalidAccountIDCreate,
+			constants.LogKeyAccountID, req.AccountID,
+		)
+		return apperror.NewWithMessage(apperror.CodeBadRequest, ErrInvalidAccountID, apperror.MsgInvalidAccountID).
 			WithField(apperror.FieldAccountID, req.AccountID)
 	}
 
 	// Parse and validate initial balance
 	balance, err := decimal.NewFromString(req.InitialBalance)
 	if err != nil {
-		return apperror.New(apperror.CodeBadRequest, ErrInvalidDecimal).
+		logger.Ctx(ctx).Debugw(constants.LogMsgInvalidDecimalFormat,
+			constants.LogFieldInitialBalance, req.InitialBalance,
+			constants.LogKeyError, err,
+		)
+		return apperror.NewWithMessage(apperror.CodeBadRequest, ErrInvalidDecimal, apperror.MsgInvalidDecimalFormat).
 			WithField(constants.LogFieldInitialBalance, req.InitialBalance)
 	}
 
 	if balance.IsNegative() {
-		return apperror.New(apperror.CodeBadRequest, ErrInvalidBalance).
+		logger.Ctx(ctx).Debugw(constants.LogMsgNegativeBalanceProvided,
+			constants.LogFieldInitialBalance, req.InitialBalance,
+		)
+		return apperror.NewWithMessage(apperror.CodeBadRequest, ErrInvalidBalance, apperror.MsgNegativeBalance).
 			WithField(constants.LogFieldInitialBalance, req.InitialBalance)
 	}
 
@@ -122,7 +132,10 @@ func (c *Core) Create(ctx context.Context, req *entities.CreateAccountRequest) a
 func (c *Core) GetByID(ctx context.Context, accountID int64) (*entities.AccountResponse, apperror.IError) {
 	// Validate account ID
 	if accountID <= 0 {
-		return nil, apperror.New(apperror.CodeBadRequest, ErrInvalidAccountID).
+		logger.Ctx(ctx).Debugw(constants.LogMsgInvalidAccountIDGet,
+			constants.LogKeyAccountID, accountID,
+		)
+		return nil, apperror.NewWithMessage(apperror.CodeBadRequest, ErrInvalidAccountID, apperror.MsgInvalidAccountID).
 			WithField(apperror.FieldAccountID, accountID)
 	}
 
@@ -131,8 +144,17 @@ func (c *Core) GetByID(ctx context.Context, accountID int64) (*entities.AccountR
 		// Check if it's already an apperror
 		var appErr *apperror.Error
 		if errors.As(err, &appErr) {
+			if appErr.Code() == apperror.CodeNotFound {
+				logger.Ctx(ctx).Debugw(constants.LogMsgAccountNotFoundDebug,
+					constants.LogKeyAccountID, accountID,
+				)
+			}
 			return nil, appErr
 		}
+		logger.Ctx(ctx).Errorw(constants.LogMsgFailedToGetAccount,
+			constants.LogKeyAccountID, accountID,
+			constants.LogKeyError, err,
+		)
 		return nil, apperror.New(apperror.CodeInternalError, err).
 			WithField(apperror.FieldAccountID, accountID)
 	}

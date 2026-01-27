@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/internal-transfers-service/internal/constants"
+	"github.com/internal-transfers-service/internal/constants/contextkeys"
 	"github.com/internal-transfers-service/internal/logger"
 	"github.com/internal-transfers-service/internal/modules/transaction/entities"
 	"github.com/internal-transfers-service/pkg/apperror"
@@ -37,13 +38,13 @@ func (h *HTTPHandler) CreateTransaction(w http.ResponseWriter, r *http.Request) 
 
 	var req entities.TransferRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.writeError(w, apperror.New(apperror.CodeBadRequest, err))
+		h.writeErrorWithContext(w, r, apperror.NewWithMessage(apperror.CodeBadRequest, err, apperror.MsgInvalidJSONBody))
 		return
 	}
 
 	response, appErr := h.core.Transfer(ctx, &req)
 	if appErr != nil {
-		h.writeError(w, appErr)
+		h.writeErrorWithContext(w, r, appErr)
 		return
 	}
 
@@ -67,7 +68,30 @@ func (h *HTTPHandler) writeJSON(w http.ResponseWriter, status int, data interfac
 	}
 }
 
-// writeError writes an error response
+// writeErrorWithContext writes an error response with request ID for tracing
+func (h *HTTPHandler) writeErrorWithContext(w http.ResponseWriter, r *http.Request, err apperror.IError) {
+	requestID := ""
+	if id, ok := r.Context().Value(contextkeys.RequestID).(string); ok {
+		requestID = id
+	}
+
+	response := entities.ErrorResponse{
+		Error:     err.PublicMessage(),
+		Code:      err.Code().String(),
+		RequestID: requestID,
+		Details:   err.Fields(),
+	}
+
+	// Log error for debugging
+	logger.Ctx(r.Context()).Errorw(constants.LogMsgRequestFailed,
+		constants.LogKeyError, err.Error(),
+		constants.LogKeyStatusCode, err.HTTPStatus(),
+	)
+
+	h.writeJSON(w, err.HTTPStatus(), response)
+}
+
+// writeError writes an error response (deprecated, use writeErrorWithContext)
 func (h *HTTPHandler) writeError(w http.ResponseWriter, err apperror.IError) {
 	response := entities.ErrorResponse{
 		Error:   err.PublicMessage(),

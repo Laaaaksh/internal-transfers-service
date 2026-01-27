@@ -7,7 +7,8 @@ type TransferResponse struct {
 
 // ErrorResponse represents a standardized error response
 type ErrorResponse struct {
-	Error   string                 `json:"error"`
-	Code    string                 `json:"code,omitempty"`
-	Details map[string]interface{} `json:"details,omitempty"`
+	Error     string                 `json:"error"`
+	Code      string                 `json:"code,omitempty"`
+	RequestID string                 `json:"request_id,omitempty"`
+	Details   map[string]interface{} `json:"details,omitempty"`
 }
