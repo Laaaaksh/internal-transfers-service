@@ -13,9 +13,102 @@ A production-grade microservice for facilitating internal fund transfers between
 - **Structured Logging** - JSON-formatted logs with request tracing
 - **Graceful Shutdown** - Proper connection draining and cleanup
 
+---
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+| Tool | Version | Installation Guide |
+|------|---------|-------------------|
+| Git | Any recent | [Install Git](https://git-scm.com/downloads) |
+| Go | 1.21+ | [Install Go](https://golang.org/dl/) |
+| Docker | Latest | [Install Docker](https://docs.docker.com/get-docker/) |
+| Docker Compose | Latest | Included with Docker Desktop |
+| Make | Any | See below |
+| curl | Any | Pre-installed on macOS/Linux |
+
+### Quick Install by OS
+
+<details>
+<summary><strong>macOS</strong> (click to expand)</summary>
+
+```bash
+# Install Homebrew (if not installed)
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# Install prerequisites
+xcode-select --install          # Includes Make and Git
+brew install go                 # Go programming language
+brew install --cask docker      # Docker Desktop
+
+# Start Docker Desktop from Applications
+# Add Go to PATH
+echo 'export PATH=$PATH:$(go env GOPATH)/bin' >> ~/.zshrc && source ~/.zshrc
+```
+
+</details>
+
+<details>
+<summary><strong>Linux (Ubuntu/Debian)</strong> (click to expand)</summary>
+
+```bash
+# Update packages
+sudo apt update && sudo apt upgrade -y
+
+# Install build tools, Git, and curl
+sudo apt install -y build-essential git curl wget
+
+# Install Go
+wget https://go.dev/dl/go1.21.0.linux-amd64.tar.gz
+sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.21.0.linux-amd64.tar.gz
+echo 'export PATH=$PATH:/usr/local/go/bin:$(go env GOPATH)/bin' >> ~/.bashrc && source ~/.bashrc
+
+# Install Docker (see https://docs.docker.com/engine/install/ubuntu/)
+curl -fsSL https://get.docker.com -o get-docker.sh && sudo sh get-docker.sh
+sudo usermod -aG docker $USER && newgrp docker
+```
+
+</details>
+
+<details>
+<summary><strong>Windows</strong> (click to expand)</summary>
+
+**Important:** This project requires WSL2 (Windows Subsystem for Linux).
+
+```powershell
+# In PowerShell (as Administrator)
+wsl --install
+# Restart computer, then open Ubuntu from Start menu
+```
+
+After restart, open **Ubuntu** and follow the Linux instructions above.
+
+Install [Docker Desktop for Windows](https://www.docker.com/products/docker-desktop/) and enable WSL2 integration in Settings.
+
+</details>
+
+### Verify Prerequisites
+
+```bash
+git --version          # git version 2.x.x
+go version             # go version go1.21.x or higher
+docker --version       # Docker version 24.x.x
+docker compose version # Docker Compose version v2.x.x
+make --version         # GNU Make 3.x or 4.x
+```
+
+> **Need detailed instructions?** See [wiki/getting-started.md](wiki/getting-started.md) for step-by-step setup for each operating system.
+
+---
+
 ## Quick Start
 
 ```bash
+# Clone the repository
+git clone https://github.com/your-org/internal-transfers-service.git
+cd internal-transfers-service
+
 # First-time setup (installs tools, starts DB, runs migrations)
 make setup
 
@@ -69,13 +162,15 @@ curl http://localhost:8081/metrics
 #           transfers_total, db_connections_open, etc.
 ```
 
+---
+
 ## Documentation
 
 Detailed documentation is available in the [wiki/](wiki/) folder:
 
 | Document | Description |
 |----------|-------------|
-| [Getting Started](wiki/getting-started.md) | Prerequisites and setup guide |
+| [Getting Started](wiki/getting-started.md) | **Complete setup guide for fresh machines** |
 | [API Reference](wiki/api-reference.md) | Complete API documentation |
 | [Development Guide](wiki/development.md) | Development commands and workflow |
 | [Database Guide](wiki/database.md) | Database schema and data inspection |
@@ -84,17 +179,25 @@ Detailed documentation is available in the [wiki/](wiki/) folder:
 | [Deployment](wiki/deployment.md) | Production deployment guide |
 | [Troubleshooting](wiki/troubleshooting.md) | Common issues and solutions |
 
+---
+
 ## Common Commands
 
 ```bash
 make help          # Show all available commands
+make setup         # First-time setup (tools, deps, db, mocks)
 make run           # Run the service
 make test          # Run all tests
+make test-short    # Run tests (faster, less verbose)
 make docker-up     # Start PostgreSQL
 make docker-down   # Stop PostgreSQL
 make migrate-up    # Run database migrations
 make mock          # Regenerate mocks
+make lint          # Run linter
+make fmt           # Format code
 ```
+
+---
 
 ## Project Structure
 
@@ -102,10 +205,14 @@ make mock          # Regenerate mocks
 internal-transfers-service/
 ├── cmd/api/           # Application entry point
 ├── internal/          # Application code
-│   ├── modules/       # Business modules (account, transaction, health)
+│   ├── boot/          # Application bootstrap
 │   ├── config/        # Configuration management
+│   ├── interceptors/  # HTTP middleware
+│   ├── modules/       # Business modules (account, transaction, health)
 │   └── ...
 ├── pkg/               # Shared libraries
+│   ├── apperror/      # Error handling
+│   └── database/      # Database connection
 ├── config/            # Configuration files (TOML)
 ├── deployment/        # Docker and deployment configs
 │   ├── dev/           # Development (docker-compose, Dockerfile)
@@ -113,6 +220,8 @@ internal-transfers-service/
 ├── wiki/              # Documentation
 └── memory-bank/       # Project context
 ```
+
+---
 
 ## Docker
 
@@ -140,6 +249,8 @@ docker run -d \
   internal-transfers-service:latest
 ```
 
+---
+
 ## API Design Decisions
 
 ### Transaction Response Enhancement
@@ -160,6 +271,8 @@ The original specification suggests returning an empty response for successful t
 
 All monetary values are validated to a maximum of 8 decimal places, matching the database schema `DECIMAL(19,8)`. Requests exceeding this precision will receive a 400 Bad Request error.
 
+---
+
 ## Security Features
 
 This service implements production-grade security measures:
@@ -172,6 +285,23 @@ This service implements production-grade security measures:
 | **Request Timeout** | 30-second timeout on all requests |
 | **Idempotency** | Safe retries with `X-Idempotency-Key` header |
 | **Pessimistic Locking** | Ordered row locks to prevent deadlocks and race conditions |
+
+---
+
+## Troubleshooting Quick Reference
+
+| Problem | Solution |
+|---------|----------|
+| `Cannot connect to Docker daemon` | Start Docker Desktop (macOS/Windows) or `sudo systemctl start docker` (Linux) |
+| `Port 8080 already in use` | Kill process: `lsof -i :8080` then `kill -9 <PID>` |
+| `command not found: go` | Add to PATH: `export PATH=$PATH:/usr/local/go/bin` |
+| `command not found: make` | macOS: `xcode-select --install`, Linux: `sudo apt install build-essential` |
+| `permission denied` (Docker on Linux) | `sudo usermod -aG docker $USER && newgrp docker` |
+| Tests fail with mock errors | Run `make mock` to regenerate mocks |
+
+> **More troubleshooting?** See [wiki/troubleshooting.md](wiki/troubleshooting.md) or [wiki/getting-started.md#troubleshooting](wiki/getting-started.md#troubleshooting)
+
+---
 
 ## Assumptions
 
@@ -195,6 +325,8 @@ The following assumptions were made during the design and implementation:
 - **Health checks for Kubernetes** - Liveness and readiness probes are designed for Kubernetes orchestration
 - **Prometheus metrics** - Metrics are exposed in Prometheus format for observability
 - **Graceful shutdown** - The service implements graceful shutdown with configurable delay for load balancer draining
+
+---
 
 ## License
 
