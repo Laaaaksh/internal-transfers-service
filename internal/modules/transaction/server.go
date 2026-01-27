@@ -85,13 +85,3 @@ func (h *HTTPHandler) writeErrorWithContext(w http.ResponseWriter, r *http.Reque
 
 	h.writeJSON(w, err.HTTPStatus(), response)
 }
-
-// writeError writes an error response (deprecated, use writeErrorWithContext)
-func (h *HTTPHandler) writeError(w http.ResponseWriter, err apperror.IError) {
-	response := entities.ErrorResponse{
-		Error:   err.PublicMessage(),
-		Code:    err.Code().String(),
-		Details: err.Fields(),
-	}
-	h.writeJSON(w, err.HTTPStatus(), response)
-}

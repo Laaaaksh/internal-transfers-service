@@ -30,21 +30,43 @@ The service starts on:
 ### Test the API
 
 ```bash
-# Create an account
+# Create accounts
 curl -X POST http://localhost:8080/accounts \
   -H "Content-Type: application/json" \
   -d '{"account_id": 1, "initial_balance": "1000.00"}'
 
+curl -X POST http://localhost:8080/accounts \
+  -H "Content-Type: application/json" \
+  -d '{"account_id": 2, "initial_balance": "500.00"}'
+
 # Get account balance
 curl http://localhost:8080/accounts/1
+# Response: {"account_id":1,"balance":"1000"}
 
-# Transfer funds
+# Transfer funds (with idempotency key for safe retries)
 curl -X POST http://localhost:8080/transactions \
   -H "Content-Type: application/json" \
+  -H "X-Idempotency-Key: transfer-001" \
   -d '{"source_account_id": 1, "destination_account_id": 2, "amount": "100.00"}'
+# Response: {"transaction_id":"550e8400-e29b-41d4-a716-446655440000"}
+```
 
-# Check health
+### Ops Endpoints
+
+```bash
+# Liveness probe - check if process is running
+curl http://localhost:8081/health/live
+# Response: {"status":"SERVING"}
+
+# Readiness probe - check if service is ready for traffic
 curl http://localhost:8081/health/ready
+# Response: {"status":"SERVING"} (healthy)
+# Response: {"status":"NOT_SERVING"} (unhealthy - e.g., DB down)
+
+# Prometheus metrics
+curl http://localhost:8081/metrics
+# Response: Prometheus text format with http_request_duration_seconds, 
+#           transfers_total, db_connections_open, etc.
 ```
 
 ## Documentation

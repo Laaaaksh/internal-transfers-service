@@ -14,20 +14,24 @@ import (
 	"github.com/internal-transfers-service/internal/logger"
 	"github.com/internal-transfers-service/internal/modules/account"
 	"github.com/internal-transfers-service/internal/modules/health"
+	"github.com/internal-transfers-service/internal/modules/idempotency"
 	"github.com/internal-transfers-service/internal/modules/transaction"
 	"github.com/internal-transfers-service/pkg/database"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+// Default cleanup interval for idempotency keys
+const idempotencyCleanupInterval = 1 * time.Hour
+
 // App holds all application dependencies
 type App struct {
-	Config      *config.Config
-	Database    *database.Database
-	Modules     *Modules
-	MainServer  *http.Server
-	OpsServer   *http.Server
-	MainRouter  chi.Router
-	OpsRouter   chi.Router
+	Config     *config.Config
+	Database   *database.Database
+	Modules    *Modules
+	MainServer *http.Server
+	OpsServer  *http.Server
+	MainRouter chi.Router
+	OpsRouter  chi.Router
 }
 
 // Modules holds all application modules
@@ -35,6 +39,7 @@ type Modules struct {
 	Account     account.IModule
 	Transaction transaction.IModule
 	Health      health.IModule
+	Idempotency idempotency.IModule
 }
 
 // Initialize creates and initializes all application dependencies.
@@ -103,12 +108,27 @@ func (a *App) initModules(ctx context.Context) {
 	accountModule := account.NewModule(ctx, a.Database.GetPool())
 	transactionModule := transaction.NewModule(ctx, a.Database.GetPool(), accountModule.GetRepository())
 	healthModule := health.NewModule(ctx, a.Database)
+	idempotencyModule := idempotency.NewModule(ctx, a.Database.GetPool())
+
+	// Start idempotency cleanup worker
+	ttl := a.getIdempotencyTTL()
+	idempotencyModule.StartCleanupWorker(ctx, ttl, idempotencyCleanupInterval)
 
 	a.Modules = &Modules{
 		Account:     accountModule,
 		Transaction: transactionModule,
 		Health:      healthModule,
+		Idempotency: idempotencyModule,
 	}
+}
+
+// getIdempotencyTTL parses the idempotency TTL from configuration
+func (a *App) getIdempotencyTTL() time.Duration {
+	ttl, err := time.ParseDuration(a.Config.Idempotency.TTL)
+	if err != nil {
+		return 24 * time.Hour // Default to 24 hours
+	}
+	return ttl
 }
 
 // setupRouters creates and configures the HTTP routers
@@ -121,8 +141,9 @@ func (a *App) setupRouters() {
 func (a *App) createMainRouter() chi.Router {
 	router := chi.NewRouter()
 
-	// Apply middleware chain from interceptors package
-	for _, mw := range interceptors.GetChiMiddleware() {
+	// Apply middleware chain from interceptors package (with idempotency support)
+	idempotencyRepo := a.Modules.Idempotency.GetRepository()
+	for _, mw := range interceptors.GetChiMiddlewareWithIdempotency(idempotencyRepo) {
 		router.Use(mw)
 	}
 
@@ -187,6 +208,9 @@ func (a *App) Shutdown(ctx context.Context) {
 	// Mark service as unhealthy
 	a.Modules.Health.GetCore().MarkUnhealthy()
 
+	// Stop idempotency cleanup worker
+	a.Modules.Idempotency.StopCleanupWorker()
+
 	// Wait for load balancer to drain connections
 	a.waitForConnectionDrain()
 
@@ -231,19 +255,38 @@ func (a *App) shutdownServers(ctx context.Context) {
 // shutdownServer shuts down a single server
 func (a *App) shutdownServer(ctx context.Context, server *http.Server, name string) {
 	if err := server.Shutdown(ctx); err != nil {
-		if name == constants.ServerNameMain {
-			logger.Error(constants.LogMsgMainServerShutdownErr, constants.LogKeyError, err)
-		} else {
-			logger.Error(constants.LogMsgOpsServerShutdownErr, constants.LogKeyError, err)
-		}
+		logShutdownError(name, err)
 		return
 	}
+	logShutdownComplete(name)
+}
 
+// logShutdownError logs server shutdown error based on server name
+func logShutdownError(name string, err error) {
+	errMsg := getShutdownErrorMessage(name)
+	logger.Error(errMsg, constants.LogKeyError, err)
+}
+
+// getShutdownErrorMessage returns the appropriate error message for the server
+func getShutdownErrorMessage(name string) string {
 	if name == constants.ServerNameMain {
-		logger.Info(constants.LogMsgMainServerShutdownDone)
-	} else {
-		logger.Info(constants.LogMsgOpsServerShutdownDone)
+		return constants.LogMsgMainServerShutdownErr
 	}
+	return constants.LogMsgOpsServerShutdownErr
+}
+
+// logShutdownComplete logs server shutdown completion based on server name
+func logShutdownComplete(name string) {
+	doneMsg := getShutdownDoneMessage(name)
+	logger.Info(doneMsg)
+}
+
+// getShutdownDoneMessage returns the appropriate done message for the server
+func getShutdownDoneMessage(name string) string {
+	if name == constants.ServerNameMain {
+		return constants.LogMsgMainServerShutdownDone
+	}
+	return constants.LogMsgOpsServerShutdownDone
 }
 
 // GetEnv returns the current environment

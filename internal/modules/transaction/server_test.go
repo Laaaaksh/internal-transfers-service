@@ -53,12 +53,17 @@ func (s *ServerTestSuite) TestNewHTTPHandlerCreatesHandler() {
 
 // TestRegisterRoutesAddsRoutes verifies routes registration
 func (s *ServerTestSuite) TestRegisterRoutesAddsRoutes() {
+	expectedRequest := &entities.TransferRequest{
+		SourceAccountID:      int64(1),
+		DestinationAccountID: int64(2),
+		Amount:               "100.00",
+	}
 	expectedResponse := &entities.TransferResponse{
 		TransactionID: "txn-123",
 	}
 
 	s.mockCore.EXPECT().
-		Transfer(gomock.Any(), gomock.Any()).
+		Transfer(gomock.Any(), expectedRequest).
 		Return(expectedResponse, nil).
 		Times(1)
 
@@ -120,10 +125,15 @@ func (s *ServerTestSuite) TestCreateTransactionWithInvalidJSONReturnsBadRequest(
 }
 
 func (s *ServerTestSuite) TestCreateTransactionInsufficientBalanceReturnsError() {
+	expectedRequest := &entities.TransferRequest{
+		SourceAccountID:      int64(100),
+		DestinationAccountID: int64(200),
+		Amount:               "999999.00",
+	}
 	coreError := apperror.NewWithMessage(apperror.CodeInsufficientFunds, transaction.ErrInsufficientBalance, "Insufficient balance")
 
 	s.mockCore.EXPECT().
-		Transfer(gomock.Any(), gomock.Any()).
+		Transfer(gomock.Any(), expectedRequest).
 		Return(nil, coreError).
 		Times(1)
 
@@ -138,10 +148,15 @@ func (s *ServerTestSuite) TestCreateTransactionInsufficientBalanceReturnsError()
 }
 
 func (s *ServerTestSuite) TestCreateTransactionAccountNotFoundReturnsNotFound() {
+	expectedRequest := &entities.TransferRequest{
+		SourceAccountID:      int64(999),
+		DestinationAccountID: int64(200),
+		Amount:               "50.00",
+	}
 	coreError := apperror.NewWithMessage(apperror.CodeNotFound, transaction.ErrSourceNotFound, "Account not found")
 
 	s.mockCore.EXPECT().
-		Transfer(gomock.Any(), gomock.Any()).
+		Transfer(gomock.Any(), expectedRequest).
 		Return(nil, coreError).
 		Times(1)
 
@@ -156,10 +171,15 @@ func (s *ServerTestSuite) TestCreateTransactionAccountNotFoundReturnsNotFound() 
 }
 
 func (s *ServerTestSuite) TestCreateTransactionSameAccountReturnsError() {
+	expectedRequest := &entities.TransferRequest{
+		SourceAccountID:      int64(100),
+		DestinationAccountID: int64(100),
+		Amount:               "50.00",
+	}
 	coreError := apperror.NewWithMessage(apperror.CodeBadRequest, transaction.ErrSameAccountTransfer, "Cannot transfer to same account")
 
 	s.mockCore.EXPECT().
-		Transfer(gomock.Any(), gomock.Any()).
+		Transfer(gomock.Any(), expectedRequest).
 		Return(nil, coreError).
 		Times(1)
 

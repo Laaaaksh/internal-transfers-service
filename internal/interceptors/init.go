@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/internal-transfers-service/internal/constants"
+	"github.com/internal-transfers-service/internal/modules/idempotency"
 )
 
 // DefaultRequestTimeout is the default timeout for HTTP requests
@@ -81,5 +82,20 @@ func GetChiMiddleware() []func(http.Handler) http.Handler {
 		RequestIDMiddleware,
 		MetricsMiddleware,
 		RequestLoggerMiddleware,
+	}
+}
+
+// GetChiMiddlewareWithIdempotency returns middleware with idempotency support.
+// The idempotency middleware is placed after logging but before the handler
+// so that idempotent requests are properly logged.
+func GetChiMiddlewareWithIdempotency(idempotencyRepo idempotency.IRepository) []func(http.Handler) http.Handler {
+	return []func(http.Handler) http.Handler{
+		middleware.RequestID,
+		middleware.RealIP,
+		RecoveryMiddleware,
+		RequestIDMiddleware,
+		MetricsMiddleware,
+		RequestLoggerMiddleware,
+		IdempotencyMiddleware(idempotencyRepo),
 	}
 }

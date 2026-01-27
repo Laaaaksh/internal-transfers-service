@@ -181,11 +181,13 @@ curl -X POST http://localhost:8080/transactions \
 
 ---
 
-## Health Endpoints
+## Health & Ops Endpoints
+
+All ops endpoints are served on port **8081** (separate from the main API on port 8080).
 
 ### Liveness Probe
 
-Indicates if the service process is running.
+Indicates if the service process is running. This is a simple check that always returns success if the process is alive.
 
 **Request:**
 ```http
@@ -197,13 +199,24 @@ GET /health/live
 {"status":"SERVING"}
 ```
 
-**Usage:** Use this for Kubernetes liveness probes.
+**Curl Example:**
+```bash
+curl http://localhost:8081/health/live
+# Response: {"status":"SERVING"}
+```
+
+**HTTP Status Codes:**
+| Status | Description |
+|--------|-------------|
+| 200 OK | Process is running |
+
+**Usage:** Use this for Kubernetes liveness probes. If this fails, Kubernetes should restart the pod.
 
 ---
 
 ### Readiness Probe
 
-Indicates if the service is ready to accept traffic (database connected).
+Indicates if the service is ready to accept traffic. This checks database connectivity and other dependencies.
 
 **Request:**
 ```http
@@ -220,13 +233,31 @@ GET /health/ready
 {"status":"NOT_SERVING"}
 ```
 
-**Usage:** Use this for Kubernetes readiness probes.
+**Curl Examples:**
+```bash
+# Check readiness
+curl http://localhost:8081/health/ready
+# Response (healthy): {"status":"SERVING"}
+# Response (unhealthy): {"status":"NOT_SERVING"}
+
+# Check with HTTP status code
+curl -w "\nHTTP Status: %{http_code}\n" http://localhost:8081/health/ready
+# HTTP Status: 200 (healthy) or 503 (unhealthy)
+```
+
+**HTTP Status Codes:**
+| Status | Description |
+|--------|-------------|
+| 200 OK | Service is ready to accept traffic |
+| 503 Service Unavailable | Service is not ready (e.g., DB connection lost) |
+
+**Usage:** Use this for Kubernetes readiness probes. If this fails, Kubernetes should stop sending traffic to the pod.
 
 ---
 
 ### Metrics
 
-Prometheus-compatible metrics endpoint.
+Prometheus-compatible metrics endpoint exposing application metrics.
 
 **Request:**
 ```http
@@ -234,6 +265,33 @@ GET /metrics
 ```
 
 **Response:** Prometheus text format metrics.
+
+**Curl Example:**
+```bash
+# Get all metrics
+curl http://localhost:8081/metrics
+
+# Filter for specific metrics
+curl -s http://localhost:8081/metrics | grep http_request
+
+# Example output:
+# http_request_duration_seconds_bucket{method="POST",path="/accounts",status_code="201",le="0.005"} 10
+# http_requests_total{method="GET",path="/accounts/1",status_code="200"} 25
+```
+
+**Available Metrics:**
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `http_request_duration_seconds` | Histogram | HTTP request duration in seconds |
+| `http_requests_total` | Counter | Total HTTP requests by method, path, status |
+| `transfers_total` | Counter | Total transfer attempts |
+| `transfers_success_total` | Counter | Successful transfers |
+| `transfers_failed_total` | Counter | Failed transfers |
+| `db_connections_open` | Gauge | Open database connections |
+| `db_connections_idle` | Gauge | Idle database connections |
+
+**Usage:** Configure Prometheus to scrape `http://service:8081/metrics`
 
 ---
 
@@ -265,17 +323,103 @@ All errors follow a consistent structure:
 
 ## Idempotency
 
-For safe retries on transaction requests, include the `X-Idempotency-Key` header:
+Idempotency ensures that retrying a request with the same key produces the same result without re-executing the operation. This is critical for financial transactions where network failures could cause duplicate processing.
 
+### How It Works
+
+1. Client includes `X-Idempotency-Key` header with a unique identifier
+2. Server checks if this key was seen before (stored in PostgreSQL)
+3. **If key exists**: Returns the cached response without processing again
+4. **If key is new**: Processes the request, stores the response, and returns it
+
+### Supported Endpoints
+
+| Endpoint | Idempotency Supported |
+|----------|----------------------|
+| POST /accounts | ✅ Yes |
+| GET /accounts/{id} | ❌ N/A (GET is inherently idempotent) |
+| POST /transactions | ✅ Yes |
+
+### Request Headers
+
+| Header | Required | Description |
+|--------|----------|-------------|
+| `X-Idempotency-Key` | No | Unique key for idempotent requests (max 255 chars) |
+
+### Response Headers
+
+| Header | Description |
+|--------|-------------|
+| `X-Idempotent-Replayed` | Set to `true` if response was returned from cache |
+
+### Examples
+
+**First Request (Processed Normally):**
 ```bash
 curl -X POST http://localhost:8080/transactions \
   -H "Content-Type: application/json" \
-  -H "X-Idempotency-Key: my-unique-key-123" \
+  -H "X-Idempotency-Key: transfer-abc-123" \
   -d '{"source_account_id": 1, "destination_account_id": 2, "amount": "100.00"}'
+
+# Response: 201 Created
+# {"transaction_id":"550e8400-e29b-41d4-a716-446655440000"}
 ```
 
-If you retry the same request with the same idempotency key:
-- The operation will not be executed again
-- You will receive the same response as the original request
+**Retry with Same Key (Returns Cached Response):**
+```bash
+curl -v -X POST http://localhost:8080/transactions \
+  -H "Content-Type: application/json" \
+  -H "X-Idempotency-Key: transfer-abc-123" \
+  -d '{"source_account_id": 1, "destination_account_id": 2, "amount": "100.00"}'
 
-Idempotency keys expire after 24 hours.
+# Response Headers include: X-Idempotent-Replayed: true
+# Response: 201 Created (same as original)
+# {"transaction_id":"550e8400-e29b-41d4-a716-446655440000"}
+```
+
+**Account Creation with Idempotency:**
+```bash
+curl -X POST http://localhost:8080/accounts \
+  -H "Content-Type: application/json" \
+  -H "X-Idempotency-Key: create-account-456" \
+  -d '{"account_id": 123, "initial_balance": "1000.00"}'
+
+# Safe to retry - won't create duplicate accounts
+```
+
+### Best Practices
+
+1. **Generate unique keys**: Use UUIDs or combine timestamp + operation type
+   ```bash
+   # Good key patterns:
+   X-Idempotency-Key: txn-$(uuidgen)
+   X-Idempotency-Key: transfer-1706384400-src1-dst2
+   X-Idempotency-Key: create-account-user123-$(date +%s)
+   ```
+
+2. **Store keys client-side**: Keep track of keys for potential retries
+
+3. **Don't reuse keys**: Each logical operation should have a unique key
+
+4. **Handle the replayed header**: Log when `X-Idempotent-Replayed: true` for debugging
+
+### Key Expiration
+
+- **TTL**: 24 hours from first request
+- **Storage**: PostgreSQL `idempotency_keys` table
+- **Cleanup**: Expired keys are automatically removed
+
+### Error Handling
+
+| Scenario | Behavior |
+|----------|----------|
+| Key too long (> 255 chars) | Returns 400 Bad Request |
+| Key not provided | Request processed normally (no idempotency) |
+| Database error checking key | Request processed normally (fail-open) |
+| Same key, different body | Returns cached response (body not validated) |
+
+### Important Notes
+
+- **Idempotency keys are NOT request-body sensitive**: Sending the same key with a different body will return the cached response from the first request, not process the new body
+- **Only 2xx-4xx responses are cached**: 5xx server errors are not cached, allowing retries to potentially succeed
+- **Keys are global**: The same key across different endpoints is treated as the same key

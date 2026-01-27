@@ -53,8 +53,13 @@ func (s *ServerTestSuite) TestNewHTTPHandlerCreatesHandler() {
 
 // TestRegisterRoutesAddsRoutes verifies routes registration
 func (s *ServerTestSuite) TestRegisterRoutesAddsRoutes() {
+	expectedRequest := &entities.CreateAccountRequest{
+		AccountID:      int64(1),
+		InitialBalance: "100.00",
+	}
+
 	s.mockCore.EXPECT().
-		Create(gomock.Any(), gomock.Any()).
+		Create(gomock.Any(), expectedRequest).
 		Return(nil).
 		Times(1)
 
@@ -106,10 +111,14 @@ func (s *ServerTestSuite) TestCreateAccountWithInvalidJSONReturnsBadRequest() {
 }
 
 func (s *ServerTestSuite) TestCreateAccountWhenCoreReturnsErrorReturnsError() {
+	expectedRequest := &entities.CreateAccountRequest{
+		AccountID:      int64(123),
+		InitialBalance: "100.00",
+	}
 	coreError := apperror.NewWithMessage(apperror.CodeConflict, account.ErrAccountExists, "Account already exists")
 
 	s.mockCore.EXPECT().
-		Create(gomock.Any(), gomock.Any()).
+		Create(gomock.Any(), expectedRequest).
 		Return(coreError).
 		Times(1)
 

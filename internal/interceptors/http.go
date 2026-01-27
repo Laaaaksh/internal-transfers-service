@@ -53,8 +53,16 @@ func sendInternalServerError(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set(constants.HeaderContentType, constants.ContentTypeJSON)
 	w.WriteHeader(http.StatusInternalServerError)
 
-	response := `{"error":"` + constants.ErrMsgInternalServerError + `","code":"` + constants.ErrCodeInternalError + `","request_id":"` + requestID + `"}`
+	response := buildErrorResponseWithRequestID(constants.ErrMsgInternalServerError, constants.ErrCodeInternalError, requestID)
 	w.Write([]byte(response))
+}
+
+// buildErrorResponseWithRequestID builds a JSON error response with request ID
+func buildErrorResponseWithRequestID(errMsg, errCode, requestID string) string {
+	return constants.JSONErrorPrefix + errMsg +
+		constants.JSONCodePrefix + errCode +
+		constants.JSONRequestIDPrefix + requestID +
+		constants.JSONSuffix
 }
 
 // RequestLoggerMiddleware logs HTTP requests with timing information.
@@ -101,10 +109,113 @@ func recordRequestMetrics(r *http.Request, statusCode int, duration time.Duratio
 // normalizePath normalizes the path to avoid high cardinality metrics.
 // Replaces dynamic segments like IDs with placeholders.
 func normalizePath(path string) string {
-	// For now, return the path as-is
-	// In production, you might want to replace numeric IDs with :id
-	// e.g., /accounts/123 -> /accounts/:id
-	return path
+	return normalizePathSegments(path)
+}
+
+// normalizePathSegments replaces numeric and UUID segments with placeholders.
+func normalizePathSegments(path string) string {
+	segments := splitPath(path)
+	for i, segment := range segments {
+		segments[i] = normalizeSegment(segment)
+	}
+	return joinPath(segments)
+}
+
+// normalizeSegment replaces a single segment with a placeholder if needed.
+func normalizeSegment(segment string) string {
+	if isNumericSegment(segment) {
+		return constants.PathPlaceholderID
+	}
+	if isUUIDSegment(segment) {
+		return constants.PathPlaceholderUUID
+	}
+	return segment
+}
+
+// splitPath splits a path into segments.
+func splitPath(path string) []string {
+	if path == "" || path == "/" {
+		return []string{}
+	}
+	// Remove leading slash
+	if path[0] == '/' {
+		path = path[1:]
+	}
+	// Split by /
+	result := []string{}
+	start := 0
+	for i := 0; i <= len(path); i++ {
+		if i == len(path) || path[i] == '/' {
+			if i > start {
+				result = append(result, path[start:i])
+			}
+			start = i + 1
+		}
+	}
+	return result
+}
+
+// joinPath joins segments back into a path.
+func joinPath(segments []string) string {
+	if len(segments) == 0 {
+		return "/"
+	}
+	result := ""
+	for _, s := range segments {
+		result += "/" + s
+	}
+	return result
+}
+
+// isNumericSegment checks if a segment is purely numeric.
+func isNumericSegment(s string) bool {
+	if len(s) == 0 {
+		return false
+	}
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// isUUIDSegment checks if a segment looks like a UUID.
+// UUIDs are 36 characters: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+func isUUIDSegment(s string) bool {
+	const uuidLength = 36
+	if len(s) != uuidLength {
+		return false
+	}
+	return validateUUIDFormat(s)
+}
+
+// validateUUIDFormat validates that a string follows UUID format.
+func validateUUIDFormat(s string) bool {
+	for i, c := range s {
+		if !isValidUUIDChar(i, c) {
+			return false
+		}
+	}
+	return true
+}
+
+// isValidUUIDChar checks if a character is valid at the given UUID position.
+func isValidUUIDChar(position int, c rune) bool {
+	if isUUIDDashPosition(position) {
+		return c == '-'
+	}
+	return isHexChar(c)
+}
+
+// isUUIDDashPosition checks if the position should have a dash in a UUID.
+func isUUIDDashPosition(position int) bool {
+	return position == 8 || position == 13 || position == 18 || position == 23
+}
+
+// isHexChar checks if a character is a valid hex character.
+func isHexChar(c rune) bool {
+	return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')
 }
 
 // RequestIDMiddleware adds a request ID to the response header.
@@ -127,7 +238,14 @@ func TimeoutMiddleware(timeout time.Duration) func(http.Handler) http.Handler {
 
 // timeoutErrorResponse returns the timeout error response body
 func timeoutErrorResponse() string {
-	return `{"error":"` + constants.ErrMsgRequestTimeout + `","code":"` + constants.ErrCodeTimeout + `"}`
+	return buildErrorResponse(constants.ErrMsgRequestTimeout, constants.ErrCodeTimeout)
+}
+
+// buildErrorResponse builds a JSON error response
+func buildErrorResponse(errMsg, errCode string) string {
+	return constants.JSONErrorPrefix + errMsg +
+		constants.JSONCodePrefix + errCode +
+		constants.JSONSuffix
 }
 
 // CORSMiddleware adds basic CORS headers.

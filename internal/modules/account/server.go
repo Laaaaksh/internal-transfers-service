@@ -83,7 +83,7 @@ func (h *HTTPHandler) writeJSON(w http.ResponseWriter, status int, data interfac
 	}
 }
 
-// writeError writes an error response with request ID for tracing
+// writeErrorWithContext writes an error response with request ID for tracing
 func (h *HTTPHandler) writeErrorWithContext(w http.ResponseWriter, r *http.Request, err apperror.IError) {
 	requestID := ""
 	if id, ok := r.Context().Value(contextkeys.RequestID).(string); ok {
@@ -103,15 +103,5 @@ func (h *HTTPHandler) writeErrorWithContext(w http.ResponseWriter, r *http.Reque
 		constants.LogKeyStatusCode, err.HTTPStatus(),
 	)
 
-	h.writeJSON(w, err.HTTPStatus(), response)
-}
-
-// writeError writes an error response (deprecated, use writeErrorWithContext)
-func (h *HTTPHandler) writeError(w http.ResponseWriter, err apperror.IError) {
-	response := entities.ErrorResponse{
-		Error:   err.PublicMessage(),
-		Code:    err.Code().String(),
-		Details: err.Fields(),
-	}
 	h.writeJSON(w, err.HTTPStatus(), response)
 }

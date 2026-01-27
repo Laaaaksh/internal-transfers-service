@@ -186,10 +186,26 @@ const (
 
 // Error response messages for interceptors
 const (
-	ErrMsgInternalServerError = "Internal server error"
-	ErrMsgRequestTimeout      = "Request timeout"
-	ErrCodeInternalError      = "INTERNAL_ERROR"
-	ErrCodeTimeout            = "TIMEOUT"
+	ErrMsgInternalServerError   = "Internal server error"
+	ErrMsgRequestTimeout        = "Request timeout"
+	ErrMsgIdempotencyKeyTooLong = "Idempotency key too long"
+	ErrCodeInternalError        = "INTERNAL_ERROR"
+	ErrCodeTimeout              = "TIMEOUT"
+	ErrCodeInvalidIdempotency   = "INVALID_IDEMPOTENCY_KEY"
+)
+
+// Path normalization placeholders
+const (
+	PathPlaceholderID   = ":id"
+	PathPlaceholderUUID = ":uuid"
+)
+
+// JSON response building constants
+const (
+	JSONErrorPrefix    = `{"error":"`
+	JSONCodePrefix     = `","code":"`
+	JSONRequestIDPrefix = `","request_id":"`
+	JSONSuffix         = `"}`
 )
 
 // Log field key constants
