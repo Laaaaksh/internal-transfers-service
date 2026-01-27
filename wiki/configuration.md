@@ -39,6 +39,12 @@ min_connections = 5
 max_conn_lifetime = "1h"
 max_conn_idle_time = "30m"
 
+[database.retry]
+enabled = true
+max_retries = 5
+initial_backoff = "1s"
+max_backoff = "30s"
+
 [logging]
 level = "info"
 format = "json"
@@ -49,6 +55,22 @@ path = "/metrics"
 
 [idempotency]
 ttl = "24h"
+
+[security]
+cors_allow_origin = "${CORS_ALLOW_ORIGIN:-*}"
+
+[rate_limit]
+enabled = true
+requests_per_second = 100.0
+burst_size = 200
+
+[tracing]
+enabled = false
+endpoint = "${OTEL_EXPORTER_OTLP_ENDPOINT:-localhost:4317}"
+service_name = "internal-transfers-service"
+sample_rate = 1.0
+insecure = true
+batch_timeout = "5s"
 ```
 
 ### dev.toml (Development)
@@ -156,6 +178,40 @@ ttl = "48h"
 |---------|------|---------|-------------|
 | idempotency.ttl | duration | 24h | How long to keep idempotency keys |
 
+### Database Retry Settings
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| database.retry.enabled | bool | true | Enable connection retry with exponential backoff |
+| database.retry.max_retries | int | 5 | Maximum number of retry attempts |
+| database.retry.initial_backoff | duration | 1s | Initial backoff duration |
+| database.retry.max_backoff | duration | 30s | Maximum backoff duration |
+
+### Security Settings
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| security.cors_allow_origin | string | * | CORS allowed origin (use specific origin in prod) |
+
+### Rate Limiting Settings
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| rate_limit.enabled | bool | true | Enable rate limiting |
+| rate_limit.requests_per_second | float | 100.0 | Average requests per second allowed |
+| rate_limit.burst_size | int | 200 | Maximum burst size (token bucket capacity) |
+
+### Tracing Settings (OpenTelemetry)
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| tracing.enabled | bool | false | Enable distributed tracing |
+| tracing.endpoint | string | localhost:4317 | OTLP collector endpoint |
+| tracing.service_name | string | internal-transfers-service | Service name in traces |
+| tracing.sample_rate | float | 1.0 | Sampling rate (0.0-1.0, 1.0 = 100%) |
+| tracing.insecure | bool | true | Use insecure gRPC connection |
+| tracing.batch_timeout | duration | 5s | Span batch export timeout |
+
 ---
 
 ## Environment Variables
@@ -174,6 +230,18 @@ export APP_LOGGING_LEVEL=warn
 # Override ports
 export APP_APP_PORT=:3000
 export APP_APP_OPS_PORT=:3001
+
+# Rate limiting
+export APP_RATE_LIMIT_ENABLED=true
+export APP_RATE_LIMIT_REQUESTS_PER_SECOND=50.0
+export APP_RATE_LIMIT_BURST_SIZE=100
+
+# Tracing
+export TRACING_ENABLED=true
+export OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317
+
+# Security
+export CORS_ALLOW_ORIGIN=https://your-domain.com
 ```
 
 ### Variable Naming Convention
@@ -246,11 +314,26 @@ The startup log shows:
 
 Before deploying to production:
 
+### Database
 - [ ] Set `APP_ENV=prod`
 - [ ] Set `APP_DATABASE_HOST` to production database
 - [ ] Set `APP_DATABASE_PASSWORD` (use secrets management)
 - [ ] Ensure `ssl_mode = "require"` or `verify-full`
 - [ ] Adjust `max_connections` based on load
+- [ ] Enable `database.retry.enabled = true` for resilience
+
+### Application
 - [ ] Set `shutdown_delay` for load balancer drain time
 - [ ] Verify `logging.level = "info"` (not debug)
 - [ ] Ensure `logging.format = "json"` for log aggregation
+
+### Security
+- [ ] Set `CORS_ALLOW_ORIGIN` to specific domain (not `*`)
+- [ ] Enable `rate_limit.enabled = true`
+- [ ] Tune `requests_per_second` and `burst_size` for your traffic
+
+### Observability
+- [ ] Set `TRACING_ENABLED=true` for distributed tracing
+- [ ] Configure `OTEL_EXPORTER_OTLP_ENDPOINT` to your collector
+- [ ] Set `tracing.sample_rate = 0.1` (10%) for production
+- [ ] Set `tracing.insecure = false` for secure gRPC

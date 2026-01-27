@@ -12,14 +12,14 @@ This document describes the system architecture, design patterns, and key techni
 │  │   HTTP Server    │    │   Ops Server     │                       │
 │  │   (Port 8080)    │    │   (Port 8081)    │                       │
 │  │                  │    │                  │                       │
-│  │  /accounts       │    │  /health/live    │                       │
-│  │  /transactions   │    │  /health/ready   │                       │
+│  │  /v1/accounts    │    │  /health/live    │                       │
+│  │  /v1/transactions│    │  /health/ready   │                       │
 │  │                  │    │  /metrics        │                       │
 │  └────────┬─────────┘    └──────────────────┘                       │
 │           │                                                          │
 │  ┌────────▼─────────────────────────────────────────────────────┐   │
 │  │                      Middleware Layer                         │   │
-│  │  RequestID │ Logger │ Metrics │ Recovery │ Idempotency       │   │
+│  │  Tracing │ RateLimit │ Security │ Logger │ Idempotency       │   │
 │  └────────┬──────────────────────────────────────────────────────┘   │
 │           │                                                          │
 │  ┌────────▼─────────────────────────────────────────────────────┐   │
@@ -40,8 +40,14 @@ This document describes the system architecture, design patterns, and key techni
 └───────────┼──────────────────────────────────────────────────────────┘
             │
 ┌───────────▼──────────────────────────────────────────────────────────┐
-│                         PostgreSQL                                    │
+│                    PostgreSQL (with Retry)                           │
 │         accounts │ transactions │ idempotency_keys                   │
+└──────────────────────────────────────────────────────────────────────┘
+            │
+            ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                    OTLP Collector (Optional)                         │
+│                 Distributed Tracing Backend                          │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -263,7 +269,27 @@ var (
 
 ## Observability
 
+### Distributed Tracing (OpenTelemetry)
+
+All requests are traced with OpenTelemetry, providing:
+- Request-scoped trace and span IDs
+- Automatic context propagation (W3C TraceContext)
+- Configurable sampling rates
+- OTLP gRPC export to any compatible collector
+
+```go
+// Trace IDs automatically added to logs
+logger.Ctx(ctx).Infow("Transfer completed",
+    "trace_id", tracing.TraceIDFromContext(ctx),
+    "span_id", tracing.SpanIDFromContext(ctx),
+    "source_account_id", req.SourceAccountID,
+    "transaction_id", txRecord.ID.String(),
+)
+```
+
 ### Structured Logging
+
+Logs include request correlation:
 
 ```go
 logger.Ctx(ctx).Infow("Transfer completed",
@@ -272,6 +298,7 @@ logger.Ctx(ctx).Infow("Transfer completed",
     "amount", amount.String(),
     "transaction_id", txRecord.ID.String(),
 )
+// Output includes: request_id, trace_id, span_id
 ```
 
 ### Prometheus Metrics
@@ -285,6 +312,36 @@ logger.Ctx(ctx).Infow("Transfer completed",
 
 - **Liveness**: `/health/live` - Is the process running?
 - **Readiness**: `/health/ready` - Is the database connected?
+
+---
+
+## Resilience Patterns
+
+### Rate Limiting
+
+Token bucket algorithm protects against abuse:
+
+```go
+// Configured in rate_limit section
+requests_per_second = 100.0  // Average rate
+burst_size = 200             // Max burst capacity
+```
+
+### Database Connection Retry
+
+Exponential backoff on startup:
+
+```go
+// Configured in database.retry section
+enabled = true
+max_retries = 5
+initial_backoff = "1s"
+max_backoff = "30s"
+```
+
+### Idempotency
+
+Safe retries for financial operations using `X-Idempotency-Key` header.
 
 ---
 
@@ -320,11 +377,15 @@ func main() {
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
+| API Versioning | `/v1` prefix | Future compatibility, easy migration |
 | Locking Strategy | Pessimistic (SELECT FOR UPDATE) | Industry standard for financial systems |
 | Decimal Handling | DECIMAL(19,8) + shopspring/decimal | Avoids floating-point errors |
 | Idempotency | X-Idempotency-Key header | Safe retries for financial operations |
-| Observability | Prometheus + Structured JSON | Cost-optimized, production-ready |
+| Rate Limiting | Token bucket algorithm | Allows bursts while enforcing average rate |
+| Distributed Tracing | OpenTelemetry + OTLP | Industry standard, vendor-neutral |
+| Observability | Prometheus + Structured JSON + Traces | Full observability stack |
 | HTTP Framework | Chi router | Lightweight, production-proven |
 | Database Driver | pgx v5 | Best Go PostgreSQL driver |
+| DB Connection Retry | Exponential backoff | Resilient startup in cloud environments |
 | Configuration | TOML + Viper | Simple, environment overrides |
 | Testing | testify/suite + gomock | Comprehensive, maintainable tests |

@@ -9,16 +9,26 @@ This document provides complete API documentation for the Internal Transfers Ser
 | Development | http://localhost:8080 |
 | Ops/Health | http://localhost:8081 |
 
+## API Versioning
+
+All API endpoints are versioned with a `/v1` prefix. This ensures backward compatibility when new versions are introduced.
+
+| Version | Prefix | Status |
+|---------|--------|--------|
+| v1 | `/v1` | Current (Active) |
+
 ## Endpoints Overview
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | /accounts | Create a new account |
-| GET | /accounts/{accountID} | Get account details |
-| POST | /transactions | Transfer funds between accounts |
+| POST | /v1/accounts | Create a new account |
+| GET | /v1/accounts/{accountID} | Get account details |
+| POST | /v1/transactions | Transfer funds between accounts |
 | GET | /health/live | Liveness probe |
 | GET | /health/ready | Readiness probe |
 | GET | /metrics | Prometheus metrics |
+
+> **Note:** Health and metrics endpoints are NOT versioned as they are ops endpoints on port 8081.
 
 ---
 
@@ -30,7 +40,7 @@ Creates a new account with an initial balance.
 
 **Request:**
 ```http
-POST /accounts
+POST /v1/accounts
 Content-Type: application/json
 
 {
@@ -59,12 +69,12 @@ Content-Type: application/json
 
 ```bash
 # Create account with ID 1
-curl -X POST http://localhost:8080/accounts \
+curl -X POST http://localhost:8080/v1/accounts \
   -H "Content-Type: application/json" \
   -d '{"account_id": 1, "initial_balance": "1000.00"}'
 
 # Create account with decimal precision
-curl -X POST http://localhost:8080/accounts \
+curl -X POST http://localhost:8080/v1/accounts \
   -H "Content-Type: application/json" \
   -d '{"account_id": 2, "initial_balance": "500.12345678"}'
 ```
@@ -77,7 +87,7 @@ Retrieves account details including current balance.
 
 **Request:**
 ```http
-GET /accounts/{accountID}
+GET /v1/accounts/{accountID}
 ```
 
 **Path Parameters:**
@@ -107,7 +117,7 @@ GET /accounts/{accountID}
 
 ```bash
 # Get account 1
-curl http://localhost:8080/accounts/1
+curl http://localhost:8080/v1/accounts/1
 
 # Response:
 # {"account_id":1,"balance":"1000"}
@@ -123,7 +133,7 @@ Transfers funds from one account to another atomically.
 
 **Request:**
 ```http
-POST /transactions
+POST /v1/transactions
 Content-Type: application/json
 X-Idempotency-Key: unique-key-123 (optional)
 
@@ -168,12 +178,12 @@ X-Idempotency-Key: unique-key-123 (optional)
 
 ```bash
 # Transfer 100 from account 1 to account 2
-curl -X POST http://localhost:8080/transactions \
+curl -X POST http://localhost:8080/v1/transactions \
   -H "Content-Type: application/json" \
   -d '{"source_account_id": 1, "destination_account_id": 2, "amount": "100.00"}'
 
 # Idempotent transfer (safe to retry)
-curl -X POST http://localhost:8080/transactions \
+curl -X POST http://localhost:8080/v1/transactions \
   -H "Content-Type: application/json" \
   -H "X-Idempotency-Key: transfer-001" \
   -d '{"source_account_id": 1, "destination_account_id": 2, "amount": "100.00"}'
@@ -336,9 +346,9 @@ Idempotency ensures that retrying a request with the same key produces the same 
 
 | Endpoint | Idempotency Supported |
 |----------|----------------------|
-| POST /accounts | ✅ Yes |
-| GET /accounts/{id} | ❌ N/A (GET is inherently idempotent) |
-| POST /transactions | ✅ Yes |
+| POST /v1/accounts | ✅ Yes |
+| GET /v1/accounts/{id} | ❌ N/A (GET is inherently idempotent) |
+| POST /v1/transactions | ✅ Yes |
 
 ### Request Headers
 
@@ -356,7 +366,7 @@ Idempotency ensures that retrying a request with the same key produces the same 
 
 **First Request (Processed Normally):**
 ```bash
-curl -X POST http://localhost:8080/transactions \
+curl -X POST http://localhost:8080/v1/transactions \
   -H "Content-Type: application/json" \
   -H "X-Idempotency-Key: transfer-abc-123" \
   -d '{"source_account_id": 1, "destination_account_id": 2, "amount": "100.00"}'
@@ -367,7 +377,7 @@ curl -X POST http://localhost:8080/transactions \
 
 **Retry with Same Key (Returns Cached Response):**
 ```bash
-curl -v -X POST http://localhost:8080/transactions \
+curl -v -X POST http://localhost:8080/v1/transactions \
   -H "Content-Type: application/json" \
   -H "X-Idempotency-Key: transfer-abc-123" \
   -d '{"source_account_id": 1, "destination_account_id": 2, "amount": "100.00"}'
@@ -379,7 +389,7 @@ curl -v -X POST http://localhost:8080/transactions \
 
 **Account Creation with Idempotency:**
 ```bash
-curl -X POST http://localhost:8080/accounts \
+curl -X POST http://localhost:8080/v1/accounts \
   -H "Content-Type: application/json" \
   -H "X-Idempotency-Key: create-account-456" \
   -d '{"account_id": 123, "initial_balance": "1000.00"}'
@@ -423,3 +433,103 @@ curl -X POST http://localhost:8080/accounts \
 - **Idempotency keys are NOT request-body sensitive**: Sending the same key with a different body will return the cached response from the first request, not process the new body
 - **Only 2xx-4xx responses are cached**: 5xx server errors are not cached, allowing retries to potentially succeed
 - **Keys are global**: The same key across different endpoints is treated as the same key
+
+---
+
+## Rate Limiting
+
+The API implements token bucket rate limiting to prevent abuse and ensure fair usage.
+
+### Configuration
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `requests_per_second` | 100 | Average requests per second allowed |
+| `burst_size` | 200 | Maximum burst of requests allowed |
+
+### Response Headers
+
+When rate limited, the response includes:
+
+| Header | Value | Description |
+|--------|-------|-------------|
+| `Retry-After` | `1` | Seconds to wait before retrying |
+| `Content-Type` | `application/json` | Response content type |
+
+### Rate Limit Response
+
+```bash
+# When rate limited (HTTP 429)
+curl -X POST http://localhost:8080/v1/accounts \
+  -H "Content-Type: application/json" \
+  -d '{"account_id": 1, "initial_balance": "100.00"}'
+
+# Response: 429 Too Many Requests
+# {"error":"rate limit exceeded","code":"RATE_LIMITED"}
+```
+
+### Best Practices
+
+1. **Implement exponential backoff**: On 429, wait and retry with increasing delays
+2. **Check Retry-After header**: Honor the suggested wait time
+3. **Use idempotency keys**: Ensures safe retries after rate limiting
+
+---
+
+## Distributed Tracing
+
+The service supports OpenTelemetry distributed tracing for observability.
+
+### Trace Context Propagation
+
+The service automatically propagates W3C TraceContext headers:
+
+| Header | Description |
+|--------|-------------|
+| `traceparent` | W3C trace context parent header |
+| `tracestate` | W3C trace context state header |
+
+### Trace and Span IDs in Logs
+
+When tracing is enabled, all logs include:
+
+```json
+{
+  "level": "info",
+  "msg": "Request completed",
+  "request_id": "abc123",
+  "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+  "span_id": "00f067aa0ba902b7"
+}
+```
+
+### Enabling Tracing
+
+Set environment variables:
+
+```bash
+export TRACING_ENABLED=true
+export OTEL_EXPORTER_OTLP_ENDPOINT=localhost:4317
+```
+
+Or configure in `config/prod.toml`:
+
+```toml
+[tracing]
+enabled = true
+endpoint = "your-otlp-collector:4317"
+sample_rate = 0.1  # Sample 10% of requests in production
+insecure = false
+```
+
+### Correlation Example
+
+```bash
+# Make request with trace context
+curl -X POST http://localhost:8080/v1/transactions \
+  -H "Content-Type: application/json" \
+  -H "traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01" \
+  -d '{"source_account_id": 1, "destination_account_id": 2, "amount": "100.00"}'
+
+# The trace ID will appear in all related logs and spans
+```
