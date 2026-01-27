@@ -54,7 +54,7 @@ func sendInternalServerError(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusInternalServerError)
 
 	response := buildErrorResponseWithRequestID(constants.ErrMsgInternalServerError, constants.ErrCodeInternalError, requestID)
-	w.Write([]byte(response))
+	_, _ = w.Write([]byte(response))
 }
 
 // buildErrorResponseWithRequestID builds a JSON error response with request ID
@@ -348,7 +348,7 @@ func writeUnsupportedMediaTypeError(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set(constants.HeaderContentType, constants.ContentTypeJSON)
 	w.WriteHeader(constants.HTTPStatusUnsupportedMediaType)
-	w.Write([]byte(buildUnsupportedMediaTypeResponse()))
+	_, _ = w.Write([]byte(buildUnsupportedMediaTypeResponse()))
 }
 
 // buildUnsupportedMediaTypeResponse builds the error response JSON

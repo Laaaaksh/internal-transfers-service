@@ -66,7 +66,7 @@ func writeIdempotencyError(w http.ResponseWriter, r *http.Request, key string) {
 
 	w.Header().Set(constants.HeaderContentType, constants.ContentTypeJSON)
 	w.WriteHeader(http.StatusBadRequest)
-	w.Write([]byte(buildIdempotencyErrorResponse()))
+	_, _ = w.Write([]byte(buildIdempotencyErrorResponse()))
 }
 
 // truncateKey truncates long keys for safe logging

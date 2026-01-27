@@ -3,7 +3,6 @@ package config
 import (
 	"os"
 	"regexp"
-	"strings"
 )
 
 // envVarPattern matches ${VAR:-default} or ${VAR} syntax in TOML values
@@ -34,14 +33,4 @@ func expandEnvVars(content []byte) []byte {
 	})
 
 	return expanded
-}
-
-// expandEnvVarsInString is a convenience wrapper for string inputs.
-func expandEnvVarsInString(content string) string {
-	return string(expandEnvVars([]byte(content)))
-}
-
-// isTemplateValue checks if a string contains template syntax.
-func isTemplateValue(value string) bool {
-	return strings.Contains(value, "${")
 }

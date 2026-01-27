@@ -14,7 +14,6 @@ import (
 	"github.com/internal-transfers-service/internal/modules/account/entities"
 	"github.com/internal-transfers-service/internal/modules/account/mock"
 	"github.com/internal-transfers-service/pkg/apperror"
-	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 )
@@ -265,13 +264,4 @@ func (s *InitTestSuite) TestGetCoreReturnsSingleton() {
 	core2 := account.GetCore()
 
 	s.Equal(core1, core2)
-}
-
-// Helper to create a test account
-func createTestAccount(id int64, balance string) *account.Account {
-	bal, _ := decimal.NewFromString(balance)
-	return &account.Account{
-		AccountID: id,
-		Balance:   bal,
-	}
 }
