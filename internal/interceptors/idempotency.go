@@ -114,7 +114,7 @@ func writeCachedResponse(w http.ResponseWriter, record *entities.IdempotencyReco
 	w.Header().Set(constants.HeaderContentType, constants.ContentTypeJSON)
 	w.Header().Set(entities.HeaderIdempotentReplayed, entities.HeaderValueTrue)
 	w.WriteHeader(record.ResponseStatus)
-	w.Write(record.ResponseBody)
+	_, _ = w.Write(record.ResponseBody)
 }
 
 // captureAndStoreResponse captures the response and stores it for future requests.

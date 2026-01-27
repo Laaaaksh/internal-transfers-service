@@ -66,7 +66,7 @@ func writeRateLimitResponse(w http.ResponseWriter) {
 	w.Header().Set(constants.HeaderContentType, constants.ContentTypeJSON)
 	w.Header().Set(constants.HeaderRetryAfter, constants.DefaultRetryAfterSeconds)
 	w.WriteHeader(constants.HTTPStatusTooManyRequests)
-	w.Write([]byte(buildRateLimitErrorResponse()))
+	_, _ = w.Write([]byte(buildRateLimitErrorResponse()))
 }
 
 // buildRateLimitErrorResponse builds the JSON error response for rate limit exceeded
