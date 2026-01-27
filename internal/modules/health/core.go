@@ -34,6 +34,18 @@ func NewCore(db *database.Database) ICore {
 	}
 }
 
+// NewCoreForTesting creates a new health check core with specified initial state (for testing)
+func NewCoreForTesting(db *database.Database, healthy bool) ICore {
+	var healthyFlag int32
+	if healthy {
+		healthyFlag = 1
+	}
+	return &Core{
+		db:      db,
+		healthy: healthyFlag,
+	}
+}
+
 // HealthResponse represents the health check response
 type HealthResponse struct {
 	Status string `json:"status"`

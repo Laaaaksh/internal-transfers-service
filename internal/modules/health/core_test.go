@@ -1,87 +1,81 @@
-package health
+package health_test
 
 import (
 	"context"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/internal-transfers-service/internal/modules/health"
+	"github.com/stretchr/testify/suite"
 )
 
-// TestLivenessCheckWhenHealthyReturnsServing tests liveness when healthy
-func TestLivenessCheckWhenHealthyReturnsServing(t *testing.T) {
-	core := &Core{
-		db:      nil, // nil db for liveness test
-		healthy: 1,
-	}
-	ctx := context.Background()
-
-	status, code := core.RunLivenessCheck(ctx)
-	assert.Equal(t, "SERVING", status)
-	assert.Equal(t, 200, code)
+// CoreTestSuite contains tests for health Core
+type CoreTestSuite struct {
+	suite.Suite
+	ctx context.Context
 }
 
-// TestLivenessCheckWhenUnhealthyReturnsNotServing tests liveness when unhealthy
-func TestLivenessCheckWhenUnhealthyReturnsNotServing(t *testing.T) {
-	core := &Core{
-		db:      nil,
-		healthy: 0,
-	}
-	ctx := context.Background()
-
-	status, code := core.RunLivenessCheck(ctx)
-	assert.Equal(t, "NOT_SERVING", status)
-	assert.Equal(t, 503, code)
+func TestCoreSuite(t *testing.T) {
+	suite.Run(t, new(CoreTestSuite))
 }
 
-// TestReadinessCheckWhenUnhealthyReturnsNotServing tests readiness when service is marked unhealthy
-func TestReadinessCheckWhenUnhealthyReturnsNotServing(t *testing.T) {
-	core := &Core{
-		db:      nil,
-		healthy: 0,
-	}
-	ctx := context.Background()
-
-	status, code := core.RunReadinessCheck(ctx)
-	assert.Equal(t, "NOT_SERVING", status)
-	assert.Equal(t, 503, code)
+func (s *CoreTestSuite) SetupTest() {
+	s.ctx = context.Background()
 }
 
-// TestMarkUnhealthySetsServiceAsUnhealthy tests the MarkUnhealthy method
-func TestMarkUnhealthySetsServiceAsUnhealthy(t *testing.T) {
-	core := &Core{
-		db:      nil,
-		healthy: 1,
-	}
+// Test RunLivenessCheck - Success Cases
 
-	assert.True(t, core.IsHealthy())
+func (s *CoreTestSuite) TestLivenessCheckWhenHealthyReturnsServing() {
+	core := health.NewCoreForTesting(nil, true)
+
+	status, code := core.RunLivenessCheck(s.ctx)
+	s.Equal("SERVING", status)
+	s.Equal(200, code)
+}
+
+func (s *CoreTestSuite) TestLivenessCheckWhenUnhealthyReturnsNotServing() {
+	core := health.NewCoreForTesting(nil, false)
+
+	status, code := core.RunLivenessCheck(s.ctx)
+	s.Equal("NOT_SERVING", status)
+	s.Equal(503, code)
+}
+
+// Test RunReadinessCheck - Success Cases
+
+func (s *CoreTestSuite) TestReadinessCheckWhenHealthyAndNilDbReturnsServing() {
+	core := health.NewCoreForTesting(nil, true)
+
+	status, code := core.RunReadinessCheck(s.ctx)
+	s.Equal("SERVING", status)
+	s.Equal(200, code)
+}
+
+func (s *CoreTestSuite) TestReadinessCheckWhenUnhealthyReturnsNotServing() {
+	core := health.NewCoreForTesting(nil, false)
+
+	status, code := core.RunReadinessCheck(s.ctx)
+	s.Equal("NOT_SERVING", status)
+	s.Equal(503, code)
+}
+
+// Test MarkUnhealthy
+
+func (s *CoreTestSuite) TestMarkUnhealthySetsServiceAsUnhealthy() {
+	core := health.NewCoreForTesting(nil, true)
+
+	s.True(core.IsHealthy())
 	core.MarkUnhealthy()
-	assert.False(t, core.IsHealthy())
+	s.False(core.IsHealthy())
 }
 
-// TestIsHealthyReturnsCorrectStatus tests the IsHealthy method
-func TestIsHealthyReturnsCorrectStatus(t *testing.T) {
-	healthyCore := &Core{
-		db:      nil,
-		healthy: 1,
-	}
-	assert.True(t, healthyCore.IsHealthy())
+// Test IsHealthy
 
-	unhealthyCore := &Core{
-		db:      nil,
-		healthy: 0,
-	}
-	assert.False(t, unhealthyCore.IsHealthy())
+func (s *CoreTestSuite) TestIsHealthyReturnsTrueWhenHealthy() {
+	core := health.NewCoreForTesting(nil, true)
+	s.True(core.IsHealthy())
 }
 
-// TestReadinessCheckWithNilDbReturnsServing tests readiness when db is nil but service is healthy
-func TestReadinessCheckWithNilDbReturnsServing(t *testing.T) {
-	core := &Core{
-		db:      nil,
-		healthy: 1,
-	}
-	ctx := context.Background()
-
-	status, code := core.RunReadinessCheck(ctx)
-	assert.Equal(t, "SERVING", status)
-	assert.Equal(t, 200, code)
+func (s *CoreTestSuite) TestIsHealthyReturnsFalseWhenUnhealthy() {
+	core := health.NewCoreForTesting(nil, false)
+	s.False(core.IsHealthy())
 }
