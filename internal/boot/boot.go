@@ -140,7 +140,7 @@ func (a *App) createOpsRouter() chi.Router {
 	healthHandler := health.NewHTTPHandler(a.Modules.Health.GetCore())
 	healthHandler.RegisterRoutes(router)
 
-	router.Handle("/metrics", promhttp.Handler())
+	router.Handle(constants.RouteMetrics, promhttp.Handler())
 
 	return router
 }
@@ -216,8 +216,8 @@ func (a *App) shutdownServers(ctx context.Context) {
 
 	go func() {
 		defer close(done)
-		a.shutdownServer(ctx, a.MainServer, "main")
-		a.shutdownServer(ctx, a.OpsServer, "ops")
+		a.shutdownServer(ctx, a.MainServer, constants.ServerNameMain)
+		a.shutdownServer(ctx, a.OpsServer, constants.ServerNameOps)
 	}()
 
 	select {
@@ -231,7 +231,7 @@ func (a *App) shutdownServers(ctx context.Context) {
 // shutdownServer shuts down a single server
 func (a *App) shutdownServer(ctx context.Context, server *http.Server, name string) {
 	if err := server.Shutdown(ctx); err != nil {
-		if name == "main" {
+		if name == constants.ServerNameMain {
 			logger.Error(constants.LogMsgMainServerShutdownErr, constants.LogKeyError, err)
 		} else {
 			logger.Error(constants.LogMsgOpsServerShutdownErr, constants.LogKeyError, err)
@@ -239,7 +239,7 @@ func (a *App) shutdownServer(ctx context.Context, server *http.Server, name stri
 		return
 	}
 
-	if name == "main" {
+	if name == constants.ServerNameMain {
 		logger.Info(constants.LogMsgMainServerShutdownDone)
 	} else {
 		logger.Info(constants.LogMsgOpsServerShutdownDone)
@@ -248,9 +248,9 @@ func (a *App) shutdownServer(ctx context.Context, server *http.Server, name stri
 
 // GetEnv returns the current environment
 func GetEnv() string {
-	env := os.Getenv("APP_ENV")
+	env := os.Getenv(constants.EnvKeyAppEnv)
 	if env == "" {
-		env = "dev"
+		env = constants.EnvDefaultDev
 	}
 	return env
 }

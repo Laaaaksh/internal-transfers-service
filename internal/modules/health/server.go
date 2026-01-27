@@ -20,8 +20,8 @@ func NewHTTPHandler(core ICore) *HTTPHandler {
 
 // RegisterRoutes registers health check routes
 func (h *HTTPHandler) RegisterRoutes(r chi.Router) {
-	r.Get("/health/live", h.LivenessCheck)
-	r.Get("/health/ready", h.ReadinessCheck)
+	r.Get(constants.RouteHealthLive, h.LivenessCheck)
+	r.Get(constants.RouteHealthReady, h.ReadinessCheck)
 }
 
 // LivenessCheck handles GET /health/live

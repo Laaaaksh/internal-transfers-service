@@ -206,4 +206,47 @@ const (
 	LogFieldRequestedAmt   = "requested_amount"
 	LogFieldNewBalance     = "new_balance"
 	LogFieldInitialBalance = "initial_balance"
+	LogFieldHost           = "host"
+	LogFieldDatabase       = "database"
+	LogFieldMaxConnections = "max_connections"
+	LogFieldSourceAccount  = "source_account"
+	LogFieldDestAccount    = "destination_account"
+)
+
+// Database log messages
+const (
+	LogMsgDBPoolInitialized = "Database connection pool initialized"
+	LogMsgDBPoolClosed      = "Database connection pool closed"
+)
+
+// Database error format strings
+const (
+	ErrFmtFailedToParseConnString  = "failed to parse connection string: %w"
+	ErrFmtFailedToCreateConnPool   = "failed to create connection pool: %w"
+	ErrFmtFailedToPingDB           = "failed to ping database: %w"
+)
+
+// Transaction repository log messages
+const (
+	LogMsgFailedToCreateTx = "Failed to create transaction"
+	LogMsgTransactionCreated = "Transaction created"
+)
+
+// Health module route paths
+const (
+	RouteHealthLive  = "/health/live"
+	RouteHealthReady = "/health/ready"
+	RouteMetrics     = "/metrics"
+)
+
+// Server name constants
+const (
+	ServerNameMain = "main"
+	ServerNameOps  = "ops"
+)
+
+// Environment variable keys
+const (
+	EnvKeyAppEnv = "APP_ENV"
+	EnvDefaultDev = "dev"
 )

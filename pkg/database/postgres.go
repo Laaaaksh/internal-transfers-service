@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/internal-transfers-service/internal/config"
+	"github.com/internal-transfers-service/internal/constants"
 	"github.com/internal-transfers-service/internal/logger"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -31,7 +32,7 @@ func Initialize(ctx context.Context, cfg *config.DatabaseConfig) (*Database, err
 
 	poolConfig, err := pgxpool.ParseConfig(connString)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse connection string: %w", err)
+		return nil, fmt.Errorf(constants.ErrFmtFailedToParseConnString, err)
 	}
 
 	// Configure pool settings
@@ -42,21 +43,21 @@ func Initialize(ctx context.Context, cfg *config.DatabaseConfig) (*Database, err
 
 	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create connection pool: %w", err)
+		return nil, fmt.Errorf(constants.ErrFmtFailedToCreateConnPool, err)
 	}
 
 	// Verify connection
 	if err := pool.Ping(ctx); err != nil {
 		pool.Close()
-		return nil, fmt.Errorf("failed to ping database: %w", err)
+		return nil, fmt.Errorf(constants.ErrFmtFailedToPingDB, err)
 	}
 
 	Pool = pool
-	logger.Info("Database connection pool initialized",
-		"host", cfg.Host,
-		"port", cfg.Port,
-		"database", cfg.Name,
-		"max_connections", cfg.MaxConnections,
+	logger.Info(constants.LogMsgDBPoolInitialized,
+		constants.LogFieldHost, cfg.Host,
+		constants.LogFieldPort, cfg.Port,
+		constants.LogFieldDatabase, cfg.Name,
+		constants.LogFieldMaxConnections, cfg.MaxConnections,
 	)
 
 	return &Database{pool: pool}, nil
@@ -71,7 +72,7 @@ func (d *Database) GetPool() *pgxpool.Pool {
 func (d *Database) Close() {
 	if d.pool != nil {
 		d.pool.Close()
-		logger.Info("Database connection pool closed")
+		logger.Info(constants.LogMsgDBPoolClosed)
 	}
 }
 

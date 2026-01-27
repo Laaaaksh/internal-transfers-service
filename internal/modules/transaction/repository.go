@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/internal-transfers-service/internal/constants"
 	"github.com/internal-transfers-service/internal/logger"
 	"github.com/internal-transfers-service/pkg/database"
 	"github.com/jackc/pgx/v5"
@@ -64,21 +65,21 @@ func (r *Repository) Create(ctx context.Context, tx pgx.Tx, transaction *Transac
 	)
 
 	if err != nil {
-		logger.Ctx(ctx).Errorw("Failed to create transaction",
-			"transaction_id", transaction.ID.String(),
-			"source_account", transaction.SourceAccountID,
-			"destination_account", transaction.DestinationAccountID,
-			"amount", transaction.Amount.String(),
-			"error", err,
+		logger.Ctx(ctx).Errorw(constants.LogMsgFailedToCreateTx,
+			constants.LogFieldTransactionID, transaction.ID.String(),
+			constants.LogFieldSourceAccount, transaction.SourceAccountID,
+			constants.LogFieldDestAccount, transaction.DestinationAccountID,
+			constants.LogKeyAmount, transaction.Amount.String(),
+			constants.LogKeyError, err,
 		)
 		return err
 	}
 
-	logger.Ctx(ctx).Infow("Transaction created",
-		"transaction_id", transaction.ID.String(),
-		"source_account", transaction.SourceAccountID,
-		"destination_account", transaction.DestinationAccountID,
-		"amount", transaction.Amount.String(),
+	logger.Ctx(ctx).Infow(constants.LogMsgTransactionCreated,
+		constants.LogFieldTransactionID, transaction.ID.String(),
+		constants.LogFieldSourceAccount, transaction.SourceAccountID,
+		constants.LogFieldDestAccount, transaction.DestinationAccountID,
+		constants.LogKeyAmount, transaction.Amount.String(),
 	)
 	return nil
 }
