@@ -484,7 +484,7 @@ listen tcp :8080: bind: address already in use
 
 1. **Create the account first:**
    ```bash
-   curl -X POST http://localhost:8080/accounts \
+   curl -X POST http://localhost:8080/v1/accounts \
      -H "Content-Type: application/json" \
      -d '{"account_id": 1, "initial_balance": "1000.00"}'
    ```
@@ -504,7 +504,7 @@ listen tcp :8080: bind: address already in use
 **Debug:**
 ```bash
 # Check current balance
-curl http://localhost:8080/accounts/1
+curl http://localhost:8080/v1/accounts/1
 ```
 
 ---
@@ -527,7 +527,7 @@ docker exec -it transfers-postgres psql -U postgres -d transfers \
 
 **Solution:** Include the header in your request:
 ```bash
-curl -X POST http://localhost:8080/accounts \
+curl -X POST http://localhost:8080/v1/accounts \
   -H "Content-Type: application/json" \
   -d '{"account_id": 1, "initial_balance": "1000.00"}'
 ```

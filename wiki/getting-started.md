@@ -465,14 +465,14 @@ The service will start on:
 curl http://localhost:8081/health/live
 # Expected: {"status":"SERVING"}
 
-# Create an account
-curl -X POST http://localhost:8080/accounts \
+# Create an account (note: all API endpoints use /v1 prefix)
+curl -X POST http://localhost:8080/v1/accounts \
   -H "Content-Type: application/json" \
   -d '{"account_id": 1, "initial_balance": "1000.00"}'
 # Expected: 201 Created
 
 # Get account
-curl http://localhost:8080/accounts/1
+curl http://localhost:8080/v1/accounts/1
 # Expected: {"account_id":1,"balance":"1000"}
 ```
 

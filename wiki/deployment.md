@@ -186,6 +186,11 @@ spec:
 | APP_DATABASE_SSL_MODE | require | SSL mode |
 | APP_DATABASE_MAX_CONNECTIONS | 50 | Max pool size |
 | APP_LOGGING_LEVEL | info | Log level |
+| TRACING_ENABLED | false | Enable OpenTelemetry tracing |
+| OTEL_EXPORTER_OTLP_ENDPOINT | localhost:4317 | OTLP collector endpoint |
+| APP_RATE_LIMIT_REQUESTS_PER_SECOND | 100 | Rate limit (requests/sec) |
+| APP_RATE_LIMIT_BURST_SIZE | 200 | Rate limit burst size |
+| CORS_ALLOW_ORIGIN | * | CORS allowed origin |
 
 ---
 
@@ -298,14 +303,26 @@ Scrape metrics from `/metrics` on the ops port:
 
 ## Production Checklist
 
+### Core
 - [ ] Database migrations applied
 - [ ] Environment variables configured
 - [ ] SSL enabled for database (`ssl_mode=require`)
 - [ ] Health checks configured in orchestrator
-- [ ] Prometheus scraping configured
-- [ ] Log aggregation configured
 - [ ] Resource limits set
-- [ ] Horizontal pod autoscaling configured (optional)
-- [ ] Network policies configured
+
+### Security
+- [ ] Rate limiting enabled (`APP_RATE_LIMIT_ENABLED=true`)
+- [ ] CORS configured for specific origin (`CORS_ALLOW_ORIGIN`)
 - [ ] Secrets management in place
+- [ ] Network policies configured
+
+### Observability
+- [ ] Prometheus scraping configured
+- [ ] Distributed tracing enabled (`TRACING_ENABLED=true`)
+- [ ] OTLP collector endpoint configured
+- [ ] Log aggregation configured (JSON format)
+
+### Resilience
+- [ ] Database connection retry enabled
+- [ ] Horizontal pod autoscaling configured (optional)
 - [ ] Backup strategy for database

@@ -83,18 +83,20 @@ internal-transfers-service/
 │   ├── config/            # Configuration management
 │   ├── constants/         # Application constants
 │   ├── database/          # Database migrations
-│   ├── interceptors/      # HTTP middleware
-│   ├── logger/            # Structured logging
+│   ├── interceptors/      # HTTP middleware (rate limiting, tracing, etc.)
+│   ├── logger/            # Structured logging (with trace/span IDs)
 │   ├── metrics/           # Prometheus metrics
+│   ├── tracing/           # OpenTelemetry distributed tracing
 │   ├── modules/           # Business modules
 │   │   ├── account/       # Account module
 │   │   ├── health/        # Health check module
+│   │   ├── idempotency/   # Idempotency key management
 │   │   └── transaction/   # Transaction module
 │   └── utils/             # Utility functions
 ├── pkg/
 │   ├── apperror/          # Custom error handling
-│   └── database/          # Database connection
-├── config/                # Configuration files
+│   └── database/          # Database connection (with retry)
+├── config/                # Configuration files (TOML)
 ├── deployment/            # Deployment configs
 ├── wiki/                  # Documentation
 └── memory-bank/           # Project documentation
