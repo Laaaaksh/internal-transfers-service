@@ -7,7 +7,7 @@
 # Run:   docker run -p 8080:8080 -p 8081:8081 internal-transfers-service:dev
 # =============================================================================
 
-FROM golang:1.21-alpine
+FROM golang:1.24-alpine
 
 # Install development dependencies
 RUN apk add --no-cache \

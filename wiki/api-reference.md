@@ -465,7 +465,7 @@ curl -X POST http://localhost:8080/v1/accounts \
   -d '{"account_id": 1, "initial_balance": "100.00"}'
 
 # Response: 429 Too Many Requests
-# {"error":"rate limit exceeded","code":"RATE_LIMITED"}
+# {"error":"Rate limit exceeded","code":"RATE_LIMIT_EXCEEDED"}
 ```
 
 ### Best Practices

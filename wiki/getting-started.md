@@ -32,7 +32,7 @@ Before you begin, you'll need to install the following tools:
 | Tool | Version | Purpose |
 |------|---------|---------|
 | Git | Any recent | Clone the repository |
-| Go | 1.21+ | Build and run the service |
+| Go | 1.24+ | Build and run the service |
 | Docker | Latest | Run PostgreSQL database |
 | Docker Compose | Latest | Orchestrate containers |
 | Make | Any | Run project commands |
@@ -144,15 +144,15 @@ This installs:
 #### Step 3: Install Go
 
 ```bash
-# Download Go 1.21 (or latest from https://golang.org/dl/)
-wget https://go.dev/dl/go1.21.0.linux-amd64.tar.gz
+# Download Go 1.24 (or latest from https://golang.org/dl/)
+wget https://go.dev/dl/go1.24.0.linux-amd64.tar.gz
 
 # Remove any previous Go installation and extract
 sudo rm -rf /usr/local/go
-sudo tar -C /usr/local -xzf go1.21.0.linux-amd64.tar.gz
+sudo tar -C /usr/local -xzf go1.24.0.linux-amd64.tar.gz
 
 # Clean up downloaded file
-rm go1.21.0.linux-amd64.tar.gz
+rm go1.24.0.linux-amd64.tar.gz
 ```
 
 Add Go to your PATH:
@@ -168,7 +168,7 @@ Verify:
 
 ```bash
 go version
-# Expected: go version go1.21.x linux/amd64
+# Expected: go version go1.24.x linux/amd64
 ```
 
 #### Step 4: Install Docker Engine
@@ -327,7 +327,7 @@ See [Linux Setup Step 3](#step-3-install-go) above.
 
 ```bash
 go version
-# Expected: go version go1.21.x or higher
+# Expected: go version go1.24.x or higher
 ```
 
 ### Configure Go Environment

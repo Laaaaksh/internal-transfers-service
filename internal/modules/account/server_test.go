@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/internal-transfers-service/internal/constants"
 	"github.com/internal-transfers-service/internal/modules/account"
 	"github.com/internal-transfers-service/internal/modules/account/entities"
 	"github.com/internal-transfers-service/internal/modules/account/mock"
@@ -65,7 +66,7 @@ func (s *ServerTestSuite) TestRegisterRoutesAddsRoutes() {
 
 	body := `{"account_id": 1, "initial_balance": "100.00"}`
 	req := httptest.NewRequest(http.MethodPost, "/accounts", bytes.NewBufferString(body))
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(constants.HeaderContentType, constants.ContentTypeJSON)
 	rec := httptest.NewRecorder()
 
 	s.router.ServeHTTP(rec, req)
@@ -86,7 +87,7 @@ func (s *ServerTestSuite) TestCreateAccountSuccessReturnsCreated() {
 
 	body := `{"account_id": 123, "initial_balance": "500.00"}`
 	req := httptest.NewRequest(http.MethodPost, "/accounts", bytes.NewBufferString(body))
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(constants.HeaderContentType, constants.ContentTypeJSON)
 	rec := httptest.NewRecorder()
 
 	s.router.ServeHTTP(rec, req)
@@ -97,7 +98,7 @@ func (s *ServerTestSuite) TestCreateAccountSuccessReturnsCreated() {
 func (s *ServerTestSuite) TestCreateAccountWithInvalidJSONReturnsBadRequest() {
 	body := `{invalid json}`
 	req := httptest.NewRequest(http.MethodPost, "/accounts", bytes.NewBufferString(body))
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(constants.HeaderContentType, constants.ContentTypeJSON)
 	rec := httptest.NewRecorder()
 
 	s.router.ServeHTTP(rec, req)
@@ -124,7 +125,7 @@ func (s *ServerTestSuite) TestCreateAccountWhenCoreReturnsErrorReturnsError() {
 
 	body := `{"account_id": 123, "initial_balance": "100.00"}`
 	req := httptest.NewRequest(http.MethodPost, "/accounts", bytes.NewBufferString(body))
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(constants.HeaderContentType, constants.ContentTypeJSON)
 	rec := httptest.NewRecorder()
 
 	s.router.ServeHTTP(rec, req)

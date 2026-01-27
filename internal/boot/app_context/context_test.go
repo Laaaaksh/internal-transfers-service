@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/internal-transfers-service/internal/boot/app_context"
+	"github.com/internal-transfers-service/internal/constants"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -58,7 +59,7 @@ func (s *ContextTestSuite) TestGetRequestIDFromChiMiddleware() {
 func (s *ContextTestSuite) TestGetRequestIDFromRequestHeader() {
 	expectedID := "header-request-id-456"
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
-	req.Header.Set("X-Request-ID", expectedID)
+	req.Header.Set(constants.HeaderRequestID, expectedID)
 
 	reqID := app_context.GetRequestIDFromRequest(req)
 
@@ -85,7 +86,7 @@ func (s *ContextTestSuite) TestGetRequestIDFromRequestFallsBackToChiMiddleware()
 func (s *ContextTestSuite) TestWithRequestIDAddsToContext() {
 	expectedID := "with-request-id-789"
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
-	req.Header.Set("X-Request-ID", expectedID)
+	req.Header.Set(constants.HeaderRequestID, expectedID)
 
 	ctx := app_context.WithRequestID(req.Context(), req)
 	reqID := app_context.GetRequestID(ctx)
@@ -112,7 +113,7 @@ func (s *ContextTestSuite) TestAddRequestIDToResponseAddsHeader() {
 
 	app_context.AddRequestIDToResponse(ctx, rec)
 
-	s.Equal(expectedID, rec.Header().Get("X-Request-ID"))
+	s.Equal(expectedID, rec.Header().Get(constants.HeaderRequestID))
 }
 
 // TestAddRequestIDToResponseDoesNothingWhenNoID verifies no header when no ID
@@ -122,5 +123,5 @@ func (s *ContextTestSuite) TestAddRequestIDToResponseDoesNothingWhenNoID() {
 
 	app_context.AddRequestIDToResponse(ctx, rec)
 
-	s.Empty(rec.Header().Get("X-Request-ID"))
+	s.Empty(rec.Header().Get(constants.HeaderRequestID))
 }

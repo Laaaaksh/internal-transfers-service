@@ -15,6 +15,12 @@ const (
 	EnvProd = "prod"
 )
 
+// Error format strings
+const (
+	ErrFmtFailedToLoadConfig     = "failed to load config for env %s: %w"
+	ErrFmtFailedToLoadConfigPath = "failed to load config from %s for env %s: %w"
+)
+
 // Config holds all application configuration
 type Config struct {
 	App         AppConfig         `mapstructure:"app"`
@@ -135,7 +141,7 @@ func LoadForEnv(env string) (*Config, error) {
 
 	var cfg Config
 	if err := loader.Load(env, &cfg, "APP"); err != nil {
-		return nil, fmt.Errorf("failed to load config for env %s: %w", env, err)
+		return nil, fmt.Errorf(ErrFmtFailedToLoadConfig, env, err)
 	}
 
 	C = &cfg
@@ -150,7 +156,7 @@ func LoadFromPath(configPath string, env string) (*Config, error) {
 
 	var cfg Config
 	if err := loader.Load(env, &cfg, "APP"); err != nil {
-		return nil, fmt.Errorf("failed to load config from %s for env %s: %w", configPath, env, err)
+		return nil, fmt.Errorf(ErrFmtFailedToLoadConfigPath, configPath, env, err)
 	}
 
 	C = &cfg

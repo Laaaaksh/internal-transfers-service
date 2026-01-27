@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/internal-transfers-service/internal/constants"
 	"github.com/internal-transfers-service/internal/interceptors"
 	"github.com/stretchr/testify/suite"
 )
@@ -236,7 +237,7 @@ func (s *HTTPMiddlewareTestSuite) TestContentTypeValidationMiddlewareAllowsValid
 	}))
 
 	req := httptest.NewRequest(http.MethodPost, "/test", nil)
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(constants.HeaderContentType, constants.ContentTypeJSON)
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
@@ -250,7 +251,7 @@ func (s *HTTPMiddlewareTestSuite) TestContentTypeValidationMiddlewareAllowsJSONW
 	}))
 
 	req := httptest.NewRequest(http.MethodPost, "/test", nil)
-	req.Header.Set("Content-Type", "application/json; charset=utf-8")
+	req.Header.Set(constants.HeaderContentType, constants.ContentTypeJSON+"; charset=utf-8")
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
@@ -264,7 +265,7 @@ func (s *HTTPMiddlewareTestSuite) TestContentTypeValidationMiddlewareRejectsInva
 	}))
 
 	req := httptest.NewRequest(http.MethodPost, "/test", nil)
-	req.Header.Set("Content-Type", "text/plain")
+	req.Header.Set(constants.HeaderContentType, "text/plain") // Invalid content type for testing rejection
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)

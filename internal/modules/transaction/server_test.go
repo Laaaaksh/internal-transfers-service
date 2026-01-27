@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/internal-transfers-service/internal/constants"
 	accountMock "github.com/internal-transfers-service/internal/modules/account/mock"
 	"github.com/internal-transfers-service/internal/modules/transaction"
 	"github.com/internal-transfers-service/internal/modules/transaction/entities"
@@ -69,7 +70,7 @@ func (s *ServerTestSuite) TestRegisterRoutesAddsRoutes() {
 
 	body := `{"source_account_id": 1, "destination_account_id": 2, "amount": "100.00"}`
 	req := httptest.NewRequest(http.MethodPost, "/transactions", bytes.NewBufferString(body))
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(constants.HeaderContentType, constants.ContentTypeJSON)
 	rec := httptest.NewRecorder()
 
 	s.router.ServeHTTP(rec, req)
@@ -95,7 +96,7 @@ func (s *ServerTestSuite) TestCreateTransactionSuccessReturnsCreated() {
 
 	body := `{"source_account_id": 100, "destination_account_id": 200, "amount": "50.00"}`
 	req := httptest.NewRequest(http.MethodPost, "/transactions", bytes.NewBufferString(body))
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(constants.HeaderContentType, constants.ContentTypeJSON)
 	rec := httptest.NewRecorder()
 
 	s.router.ServeHTTP(rec, req)
@@ -111,7 +112,7 @@ func (s *ServerTestSuite) TestCreateTransactionSuccessReturnsCreated() {
 func (s *ServerTestSuite) TestCreateTransactionWithInvalidJSONReturnsBadRequest() {
 	body := `{invalid json}`
 	req := httptest.NewRequest(http.MethodPost, "/transactions", bytes.NewBufferString(body))
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(constants.HeaderContentType, constants.ContentTypeJSON)
 	rec := httptest.NewRecorder()
 
 	s.router.ServeHTTP(rec, req)
@@ -139,7 +140,7 @@ func (s *ServerTestSuite) TestCreateTransactionInsufficientBalanceReturnsError()
 
 	body := `{"source_account_id": 100, "destination_account_id": 200, "amount": "999999.00"}`
 	req := httptest.NewRequest(http.MethodPost, "/transactions", bytes.NewBufferString(body))
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(constants.HeaderContentType, constants.ContentTypeJSON)
 	rec := httptest.NewRecorder()
 
 	s.router.ServeHTTP(rec, req)
@@ -162,7 +163,7 @@ func (s *ServerTestSuite) TestCreateTransactionAccountNotFoundReturnsNotFound() 
 
 	body := `{"source_account_id": 999, "destination_account_id": 200, "amount": "50.00"}`
 	req := httptest.NewRequest(http.MethodPost, "/transactions", bytes.NewBufferString(body))
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(constants.HeaderContentType, constants.ContentTypeJSON)
 	rec := httptest.NewRecorder()
 
 	s.router.ServeHTTP(rec, req)
@@ -185,7 +186,7 @@ func (s *ServerTestSuite) TestCreateTransactionSameAccountReturnsError() {
 
 	body := `{"source_account_id": 100, "destination_account_id": 100, "amount": "50.00"}`
 	req := httptest.NewRequest(http.MethodPost, "/transactions", bytes.NewBufferString(body))
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(constants.HeaderContentType, constants.ContentTypeJSON)
 	rec := httptest.NewRecorder()
 
 	s.router.ServeHTTP(rec, req)

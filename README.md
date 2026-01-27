@@ -25,7 +25,7 @@ Before you begin, ensure you have the following installed:
 | Tool | Version | Installation Guide |
 |------|---------|-------------------|
 | Git | Any recent | [Install Git](https://git-scm.com/downloads) |
-| Go | 1.21+ | [Install Go](https://golang.org/dl/) |
+| Go | 1.24+ | [Install Go](https://golang.org/dl/) |
 | Docker | Latest | [Install Docker](https://docs.docker.com/get-docker/) |
 | Docker Compose | Latest | Included with Docker Desktop |
 | Make | Any | See below |
@@ -62,9 +62,9 @@ sudo apt update && sudo apt upgrade -y
 # Install build tools, Git, and curl
 sudo apt install -y build-essential git curl wget
 
-# Install Go
-wget https://go.dev/dl/go1.21.0.linux-amd64.tar.gz
-sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.21.0.linux-amd64.tar.gz
+# Install Go (check https://go.dev/dl/ for latest version)
+wget https://go.dev/dl/go1.24.0.linux-amd64.tar.gz
+sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.24.0.linux-amd64.tar.gz
 echo 'export PATH=$PATH:/usr/local/go/bin:$(go env GOPATH)/bin' >> ~/.bashrc && source ~/.bashrc
 
 # Install Docker (see https://docs.docker.com/engine/install/ubuntu/)
@@ -95,7 +95,7 @@ Install [Docker Desktop for Windows](https://www.docker.com/products/docker-desk
 
 ```bash
 git --version          # git version 2.x.x
-go version             # go version go1.21.x or higher
+go version             # go version go1.24.x or higher
 docker --version       # Docker version 24.x.x
 docker compose version # Docker Compose version v2.x.x
 make --version         # GNU Make 3.x or 4.x
@@ -190,14 +190,19 @@ Detailed documentation is available in the [wiki/](wiki/) folder:
 make help          # Show all available commands
 make setup         # First-time setup (tools, deps, db, mocks)
 make run           # Run the service
+make build         # Build the application binary
 make test          # Run all tests
 make test-short    # Run tests (faster, less verbose)
+make test-coverage # Run tests with coverage report
 make docker-up     # Start PostgreSQL
 make docker-down   # Stop PostgreSQL
+make docker-clean  # Stop PostgreSQL and remove volumes
 make migrate-up    # Run database migrations
+make migrate-down  # Rollback all migrations
 make mock          # Regenerate mocks
 make lint          # Run linter
 make fmt           # Format code
+make deps          # Download and tidy dependencies
 ```
 
 ---
@@ -346,7 +351,7 @@ The following assumptions were made during the design and implementation:
 - **Decimal precision** - All monetary values use 8 decimal places for financial accuracy
 
 ### Technical
-- **PostgreSQL required** - The service requires PostgreSQL 12+ for pessimistic locking support
+- **PostgreSQL required** - The service requires PostgreSQL 15+ for pessimistic locking support
 - **Single instance initially** - While designed for horizontal scaling, the current implementation assumes single-instance deployment
 - **Idempotency keys are client-provided** - Clients must generate and provide idempotency keys for safe retries
 - **No authentication** - The API does not implement authentication/authorization (assumed to be handled by API gateway)
