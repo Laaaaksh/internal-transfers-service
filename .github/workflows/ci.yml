@@ -66,9 +66,31 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
-      - name: Install migrate tool
+      - name: Install tools (migrate, mockgen)
         run: |
           go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+          go install go.uber.org/mock/mockgen@latest
+
+      - name: Generate mocks
+        run: |
+          # Generate all mocks
+          mockgen -source=internal/modules/account/repository.go -destination=internal/modules/account/mock/mock_repository.go -package=mock
+          mockgen -source=internal/modules/account/core.go -destination=internal/modules/account/mock/mock_core.go -package=mock
+          mockgen -source=internal/modules/transaction/repository.go -destination=internal/modules/transaction/mock/mock_repository.go -package=mock
+          mockgen -source=internal/modules/transaction/core.go -destination=internal/modules/transaction/mock/mock_core.go -package=mock
+          mockgen -source=internal/modules/idempotency/repository.go -destination=internal/modules/idempotency/mock/mock_repository.go -package=mock
+          mockgen -source=pkg/database/pool.go -destination=pkg/database/mock/mock_pool.go -package=mock
+          mockgen -destination=pkg/database/mock/mock_row.go -package=mock github.com/jackc/pgx/v5 Row
+          mockgen -destination=pkg/database/mock/mock_tx.go -package=mock github.com/jackc/pgx/v5 Tx
+
+      - name: Verify mocks are up to date
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::Mocks are out of date. Please run 'make mock' and commit the changes."
+            git diff --name-only
+            exit 1
+          fi
+          echo "Mocks are up to date."
 
       - name: Run database migrations
         env:
