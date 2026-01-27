@@ -154,7 +154,14 @@ const (
 	LogMsgAccountNotFoundDebug    = "Account not found"
 
 	// HTTP handler log messages
-	LogMsgRequestFailed = "Request failed"
+	LogMsgRequestFailed   = "Request failed"
+	LogMsgPanicRecovered  = "Panic recovered"
+	LogMsgRequestReceived = "Request received"
+)
+
+// Additional log field keys for interceptors
+const (
+	LogKeyStack = "stack"
 )
 
 // Log field key constants
