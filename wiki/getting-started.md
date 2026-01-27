@@ -443,10 +443,10 @@ make setup
 
 This command will:
 1. ✅ Install development tools (golangci-lint, mockgen, migrate, goimports)
-2. ✅ Download Go dependencies
-3. ✅ Start PostgreSQL via Docker
-4. ✅ Run database migrations
-5. ✅ Generate mock files for testing
+2. ✅ Generate mock files for testing
+3. ✅ Download Go dependencies
+4. ✅ Start PostgreSQL via Docker
+5. ✅ Run database migrations
 
 After setup completes, start the service:
 
@@ -503,13 +503,21 @@ go install go.uber.org/mock/mockgen@latest
 go install golang.org/x/tools/cmd/goimports@latest
 ```
 
-### Step 2: Download Go Dependencies
+### Step 2: Generate Mocks
+
+Mocks must be generated before downloading dependencies (test files import mock packages).
+
+```bash
+make mock
+```
+
+### Step 3: Download Go Dependencies
 
 ```bash
 make deps
 ```
 
-### Step 3: Start PostgreSQL
+### Step 4: Start PostgreSQL
 
 ```bash
 # Start PostgreSQL container
@@ -525,7 +533,7 @@ NAME                 STATUS
 transfers-postgres   Up X seconds (healthy)
 ```
 
-### Step 4: Run Database Migrations
+### Step 5: Run Database Migrations
 
 ```bash
 make migrate-up
@@ -538,12 +546,6 @@ Running migrations...
 2/u create_transactions (xx.xxxms)
 3/u create_idempotency_keys (xx.xxxms)
 Migrations complete
-```
-
-### Step 5: Generate Mocks
-
-```bash
-make mock
 ```
 
 ### Step 6: Run Tests

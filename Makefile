@@ -200,24 +200,56 @@ deps-install:
 ## ==================== Setup (First Time) ====================
 
 # Full setup for first-time development
-setup: deps-install deps docker-up
-	@echo "$(GREEN)Waiting for database to be ready...$(NC)"
-	@sleep 5
-	@make migrate-up
-	@make mock
+# Order: install tools -> generate mocks -> tidy deps -> start db -> migrate
+setup:
 	@echo ""
 	@echo "$(GREEN)============================================$(NC)"
-	@echo "$(GREEN)Setup complete! You can now run:$(NC)"
-	@echo "$(GREEN)  make run      - Start the service$(NC)"
-	@echo "$(GREEN)  make test     - Run tests$(NC)"
+	@echo "$(GREEN)  Internal Transfers Service - Setup$(NC)"
 	@echo "$(GREEN)============================================$(NC)"
+	@echo ""
+	@echo "$(GREEN)[1/5] Installing development tools...$(NC)"
+	@$(MAKE) deps-install --no-print-directory
+	@echo ""
+	@echo "$(GREEN)[2/5] Generating mock files...$(NC)"
+	@$(MAKE) mock --no-print-directory
+	@echo ""
+	@echo "$(GREEN)[3/5] Downloading dependencies...$(NC)"
+	@$(MAKE) deps --no-print-directory
+	@echo ""
+	@echo "$(GREEN)[4/5] Starting PostgreSQL database...$(NC)"
+	@$(MAKE) docker-up --no-print-directory
+	@echo ""
+	@echo "$(GREEN)[5/5] Running database migrations...$(NC)"
+	@echo "$(GREEN)Waiting for database to be ready...$(NC)"
+	@sleep 5
+	@$(MAKE) migrate-up --no-print-directory
+	@echo ""
+	@echo "$(GREEN)============================================$(NC)"
+	@echo "$(GREEN)  Setup complete!$(NC)"
+	@echo "$(GREEN)============================================$(NC)"
+	@echo ""
+	@echo "$(GREEN)Next steps:$(NC)"
+	@echo "  $(YELLOW)make run$(NC)   - Start the service (API on :8080, Ops on :8081)"
+	@echo "  $(YELLOW)make test$(NC)  - Run all tests"
+	@echo "  $(YELLOW)make help$(NC)  - Show all available commands"
+	@echo ""
+	@echo "$(GREEN)Quick test:$(NC)"
+	@echo "  curl http://localhost:8081/health/live"
+	@echo ""
 
 ## ==================== Help ====================
 
 # Show help
 help:
 	@echo ""
-	@echo "$(GREEN)Internal Transfers Service - Makefile Commands$(NC)"
+	@echo "$(GREEN)============================================$(NC)"
+	@echo "$(GREEN)  Internal Transfers Service - Help$(NC)"
+	@echo "$(GREEN)============================================$(NC)"
+	@echo ""
+	@echo "$(YELLOW)Quick Start (New Users):$(NC)"
+	@echo "  1. make setup    - First-time setup (installs tools, db, mocks)"
+	@echo "  2. make run      - Start the service"
+	@echo "  3. curl http://localhost:8081/health/live"
 	@echo ""
 	@echo "$(YELLOW)Build & Run:$(NC)"
 	@echo "  make build         - Build the application binary"
@@ -242,11 +274,11 @@ help:
 	@echo "  make docker-logs   - View PostgreSQL logs"
 	@echo ""
 	@echo "$(YELLOW)Database:$(NC)"
-	@echo "  make migrate-up      - Run all pending migrations"
-	@echo "  make migrate-down    - Rollback all migrations"
-	@echo "  make migrate-down-one- Rollback one migration"
-	@echo "  make migrate-create  - Create new migration files"
-	@echo "  make migrate-version - Show current migration version"
+	@echo "  make migrate-up       - Run all pending migrations"
+	@echo "  make migrate-down     - Rollback all migrations"
+	@echo "  make migrate-down-one - Rollback one migration"
+	@echo "  make migrate-create   - Create new migration files"
+	@echo "  make migrate-version  - Show current migration version"
 	@echo ""
 	@echo "$(YELLOW)Mocks:$(NC)"
 	@echo "  make mock          - Clean and regenerate all mocks"

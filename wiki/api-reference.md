@@ -163,8 +163,9 @@ X-Idempotency-Key: unique-key-123 (optional)
 | Status | Description |
 |--------|-------------|
 | 201 Created | Transfer successful |
-| 400 Bad Request | Invalid request or insufficient balance |
+| 400 Bad Request | Invalid request body or parameters |
 | 404 Not Found | Account not found |
+| 422 Unprocessable Entity | Insufficient balance for transfer |
 | 500 Internal Server Error | Server error |
 
 **Success Response Body:**
@@ -324,9 +325,9 @@ All errors follow a consistent structure:
 | Code | HTTP Status | Description |
 |------|-------------|-------------|
 | INVALID_REQUEST | 400 | Invalid request body or parameters |
-| INSUFFICIENT_BALANCE | 400 | Source account has insufficient funds |
-| ACCOUNT_NOT_FOUND | 404 | Account does not exist |
-| ACCOUNT_ALREADY_EXISTS | 409 | Account with this ID already exists |
+| NOT_FOUND | 404 | Account does not exist |
+| CONFLICT | 409 | Account with this ID already exists |
+| INSUFFICIENT_FUNDS | 422 | Source account has insufficient funds |
 | INTERNAL_ERROR | 500 | Internal server error |
 
 ---
