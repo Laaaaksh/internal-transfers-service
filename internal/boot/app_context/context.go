@@ -7,14 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/internal-transfers-service/internal/constants"
-)
-
-// contextKey is a custom type for context keys to avoid collisions
-type contextKey string
-
-const (
-	// RequestIDKey is the context key for request ID
-	RequestIDKey contextKey = "request_id"
+	"github.com/internal-transfers-service/internal/constants/contextkeys"
 )
 
 // GetRequestID extracts the request ID from context.
@@ -26,7 +19,7 @@ func GetRequestID(ctx context.Context) string {
 	}
 
 	// Fallback to our custom key
-	if reqID, ok := ctx.Value(RequestIDKey).(string); ok {
+	if reqID, ok := ctx.Value(contextkeys.RequestID).(string); ok {
 		return reqID
 	}
 
@@ -35,7 +28,7 @@ func GetRequestID(ctx context.Context) string {
 
 // SetRequestID adds a request ID to the context.
 func SetRequestID(ctx context.Context, requestID string) context.Context {
-	return context.WithValue(ctx, RequestIDKey, requestID)
+	return context.WithValue(ctx, contextkeys.RequestID, requestID)
 }
 
 // GetRequestIDFromRequest extracts or generates request ID from HTTP request.

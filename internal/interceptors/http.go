@@ -13,11 +13,6 @@ import (
 	"github.com/internal-transfers-service/internal/metrics"
 )
 
-const (
-	// StackSize is the size of the stack trace buffer for panic recovery
-	StackSize = 4 << 10 // 4 KB
-)
-
 // RecoveryMiddleware recovers from panics and logs the stack trace.
 func RecoveryMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -37,7 +32,7 @@ func recoverFromPanic(r *http.Request, w http.ResponseWriter) {
 
 // captureStackTrace captures the current stack trace
 func captureStackTrace() string {
-	stack := make([]byte, StackSize)
+	stack := make([]byte, constants.StackSizeBytes)
 	length := runtime.Stack(stack, false)
 	return string(stack[:length])
 }
@@ -58,7 +53,7 @@ func sendInternalServerError(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set(constants.HeaderContentType, constants.ContentTypeJSON)
 	w.WriteHeader(http.StatusInternalServerError)
 
-	response := `{"error":"Internal server error","code":"INTERNAL_ERROR","request_id":"` + requestID + `"}`
+	response := `{"error":"` + constants.ErrMsgInternalServerError + `","code":"` + constants.ErrCodeInternalError + `","request_id":"` + requestID + `"}`
 	w.Write([]byte(response))
 }
 
@@ -132,15 +127,15 @@ func TimeoutMiddleware(timeout time.Duration) func(http.Handler) http.Handler {
 
 // timeoutErrorResponse returns the timeout error response body
 func timeoutErrorResponse() string {
-	return `{"error":"Request timeout","code":"TIMEOUT"}`
+	return `{"error":"` + constants.ErrMsgRequestTimeout + `","code":"` + constants.ErrCodeTimeout + `"}`
 }
 
 // CORSMiddleware adds basic CORS headers.
 func CORSMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Idempotency-Key, X-Request-ID")
+		w.Header().Set(constants.HeaderAccessControlAllowOrigin, constants.CORSAllowOriginAll)
+		w.Header().Set(constants.HeaderAccessControlAllowMethods, constants.CORSAllowMethodsAll)
+		w.Header().Set(constants.HeaderAccessControlAllowHeaders, constants.CORSAllowHeadersCommon)
 
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusOK)

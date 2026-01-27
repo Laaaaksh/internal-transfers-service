@@ -6,10 +6,11 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/internal-transfers-service/internal/constants"
 )
 
 // DefaultRequestTimeout is the default timeout for HTTP requests
-const DefaultRequestTimeout = 30 * time.Second
+var DefaultRequestTimeout = time.Duration(constants.DefaultRequestTimeoutSeconds) * time.Second
 
 // Middleware is a function that wraps an http.Handler
 type Middleware func(http.Handler) http.Handler

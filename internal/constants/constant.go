@@ -164,6 +164,34 @@ const (
 	LogKeyStack = "stack"
 )
 
+// Interceptor constants
+const (
+	// StackSizeBytes is the size of the stack trace buffer for panic recovery (4 KB)
+	StackSizeBytes = 4 << 10
+
+	// DefaultRequestTimeoutSeconds is the default timeout for HTTP requests in seconds
+	DefaultRequestTimeoutSeconds = 30
+)
+
+// CORS headers
+const (
+	HeaderAccessControlAllowOrigin  = "Access-Control-Allow-Origin"
+	HeaderAccessControlAllowMethods = "Access-Control-Allow-Methods"
+	HeaderAccessControlAllowHeaders = "Access-Control-Allow-Headers"
+
+	CORSAllowOriginAll     = "*"
+	CORSAllowMethodsAll    = "GET, POST, PUT, DELETE, OPTIONS"
+	CORSAllowHeadersCommon = "Content-Type, Authorization, X-Idempotency-Key, X-Request-ID"
+)
+
+// Error response messages for interceptors
+const (
+	ErrMsgInternalServerError = "Internal server error"
+	ErrMsgRequestTimeout      = "Request timeout"
+	ErrCodeInternalError      = "INTERNAL_ERROR"
+	ErrCodeTimeout            = "TIMEOUT"
+)
+
 // Log field key constants
 const (
 	LogFieldName           = "name"

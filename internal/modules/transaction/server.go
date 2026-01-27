@@ -12,11 +12,6 @@ import (
 	"github.com/internal-transfers-service/pkg/apperror"
 )
 
-// Route path constants
-const (
-	routeTransactions = "/transactions"
-)
-
 // HTTPHandler handles HTTP requests for transaction operations
 type HTTPHandler struct {
 	core ICore
@@ -29,7 +24,7 @@ func NewHTTPHandler(core ICore) *HTTPHandler {
 
 // RegisterRoutes registers the transaction routes with the router
 func (h *HTTPHandler) RegisterRoutes(r chi.Router) {
-	r.Post(routeTransactions, h.CreateTransaction)
+	r.Post(entities.RouteTransactions, h.CreateTransaction)
 }
 
 // CreateTransaction handles POST /transactions

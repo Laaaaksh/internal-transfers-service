@@ -10,3 +10,8 @@ const (
 	ErrMsgSourceNotFound      = "source account not found"
 	ErrMsgDestNotFound        = "destination account not found"
 )
+
+// Route path constants for the transaction module
+const (
+	RouteTransactions = "/transactions"
+)

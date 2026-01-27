@@ -13,13 +13,6 @@ import (
 	"github.com/internal-transfers-service/pkg/apperror"
 )
 
-// Route path constants
-const (
-	routeAccounts   = "/accounts"
-	routeAccountByID = "/accounts/{accountID}"
-	paramAccountID   = "accountID"
-)
-
 // HTTPHandler handles HTTP requests for account operations
 type HTTPHandler struct {
 	core ICore
@@ -32,8 +25,8 @@ func NewHTTPHandler(core ICore) *HTTPHandler {
 
 // RegisterRoutes registers the account routes with the router
 func (h *HTTPHandler) RegisterRoutes(r chi.Router) {
-	r.Post(routeAccounts, h.CreateAccount)
-	r.Get(routeAccountByID, h.GetAccount)
+	r.Post(entities.RouteAccounts, h.CreateAccount)
+	r.Get(entities.RouteAccountByID, h.GetAccount)
 }
 
 // CreateAccount handles POST /accounts
@@ -62,7 +55,7 @@ func (h *HTTPHandler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 func (h *HTTPHandler) GetAccount(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	accountIDStr := chi.URLParam(r, paramAccountID)
+	accountIDStr := chi.URLParam(r, entities.ParamAccountID)
 	accountID, err := strconv.ParseInt(accountIDStr, 10, 64)
 	if err != nil {
 		h.writeErrorWithContext(w, r, apperror.NewWithMessage(apperror.CodeBadRequest, ErrInvalidAccountID, apperror.MsgInvalidAccountID).
