@@ -55,35 +55,35 @@ type HealthResponse struct {
 func (c *Core) RunLivenessCheck(ctx context.Context) (string, int) {
 	// Liveness just checks if the process is running
 	if !c.IsHealthy() {
-		return constants.StatusNotServing, 503
+		return constants.StatusNotServing, constants.HTTPStatusServiceUnavailable
 	}
-	return constants.StatusServing, 200
+	return constants.StatusServing, constants.HTTPStatusOK
 }
 
 // RunReadinessCheck checks if the service is ready to accept requests
 func (c *Core) RunReadinessCheck(ctx context.Context) (string, int) {
 	// Check if service is marked as healthy
 	if !c.IsHealthy() {
-		return constants.StatusNotServing, 503
+		return constants.StatusNotServing, constants.HTTPStatusServiceUnavailable
 	}
 
 	// Check database connectivity
 	if c.db != nil {
 		if err := c.db.Ping(ctx); err != nil {
-			logger.Ctx(ctx).Warnw("Readiness check failed - database ping failed",
-				"error", err,
+			logger.Ctx(ctx).Warnw(constants.LogMsgReadinessCheckFailed,
+				constants.LogKeyError, err,
 			)
-			return constants.StatusNotServing, 503
+			return constants.StatusNotServing, constants.HTTPStatusServiceUnavailable
 		}
 	}
 
-	return constants.StatusServing, 200
+	return constants.StatusServing, constants.HTTPStatusOK
 }
 
 // MarkUnhealthy marks the service as unhealthy for graceful shutdown
 func (c *Core) MarkUnhealthy() {
 	atomic.StoreInt32(&c.healthy, 0)
-	logger.Info("Service marked as unhealthy")
+	logger.Info(constants.LogMsgServiceMarkedUnhealthy)
 }
 
 // IsHealthy returns whether the service is healthy

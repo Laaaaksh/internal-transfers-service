@@ -10,9 +10,9 @@ const (
 	APIVersion = "v1"
 
 	// HTTP headers
-	HeaderRequestID     = "X-Request-ID"
+	HeaderRequestID      = "X-Request-ID"
 	HeaderIdempotencyKey = "X-Idempotency-Key"
-	HeaderContentType   = "Content-Type"
+	HeaderContentType    = "Content-Type"
 
 	// Content types
 	ContentTypeJSON = "application/json"
@@ -23,6 +23,46 @@ const (
 
 	// Decimal precision for money
 	DecimalPrecision = 8
+)
+
+// Log format types
+const (
+	LogFormatJSON    = "json"
+	LogFormatConsole = "console"
+)
+
+// Log levels
+const (
+	LogLevelDebug = "debug"
+	LogLevelInfo  = "info"
+	LogLevelWarn  = "warn"
+	LogLevelError = "error"
+)
+
+// Log encoder configuration keys
+const (
+	LogEncoderTimeKey    = "timestamp"
+	LogEncoderMessageKey = "message"
+	LogEncoderLevelKey   = "level"
+	LogEncoderCallerKey  = "caller"
+)
+
+// Log output paths
+const (
+	LogOutputStdout = "stdout"
+	LogOutputStderr = "stderr"
+)
+
+// HTTP status codes
+const (
+	HTTPStatusOK                  = 200
+	HTTPStatusCreated             = 201
+	HTTPStatusBadRequest          = 400
+	HTTPStatusNotFound            = 404
+	HTTPStatusConflict            = 409
+	HTTPStatusUnprocessableEntity = 422
+	HTTPStatusInternalServerError = 500
+	HTTPStatusServiceUnavailable  = 503
 )
 
 // Database table names
@@ -63,4 +103,62 @@ const (
 	LabelPath       = "path"
 	LabelStatusCode = "status_code"
 	LabelReason     = "reason"
+)
+
+// Log message constants - static log messages
+const (
+	LogMsgStartingService          = "Starting service"
+	LogMsgFailedToInitDB           = "Failed to initialize database"
+	LogMsgMainServerStarting       = "Main HTTP server starting"
+	LogMsgOpsServerStarting        = "Ops HTTP server starting"
+	LogMsgMainServerFailed         = "Main server failed"
+	LogMsgOpsServerFailed          = "Ops server failed"
+	LogMsgShutdownSignalReceived   = "Shutdown signal received, initiating graceful shutdown"
+	LogMsgWaitingForShutdownDelay  = "Waiting for shutdown delay"
+	LogMsgMainServerShutdownErr    = "Main server shutdown error"
+	LogMsgMainServerShutdownDone   = "Main server shutdown complete"
+	LogMsgOpsServerShutdownErr     = "Ops server shutdown error"
+	LogMsgOpsServerShutdownDone    = "Ops server shutdown complete"
+	LogMsgGracefulShutdownComplete = "Graceful shutdown complete"
+	LogMsgShutdownTimeoutExceeded  = "Shutdown timeout exceeded, forcing exit"
+	LogMsgServiceStopped           = "Service stopped"
+	LogMsgHTTPRequestCompleted     = "HTTP request completed"
+	LogMsgAccountCreatedViaHTTP    = "Account created via HTTP"
+	LogMsgTransactionCreatedHTTP   = "Transaction created via HTTP"
+	LogMsgFailedToEncodeResponse   = "Failed to encode response"
+	LogMsgReadinessCheckFailed     = "Readiness check failed - database ping failed"
+	LogMsgServiceMarkedUnhealthy   = "Service marked as unhealthy"
+
+	// Transaction core log messages
+	LogMsgFailedToBeginTx         = "Failed to begin transaction"
+	LogMsgInsufficientBalance     = "Insufficient balance for transfer"
+	LogMsgFailedToUpdateSourceBal = "Failed to update source account balance"
+	LogMsgFailedToUpdateDestBal   = "Failed to update destination account balance"
+	LogMsgFailedToCreateTxRecord  = "Failed to create transaction record"
+	LogMsgFailedToCommitTx        = "Failed to commit transaction"
+	LogMsgTransferCompleted       = "Transfer completed successfully"
+
+	// Account core log messages
+	LogMsgFailedToCheckAcctExist = "Failed to check account existence"
+	LogMsgFailedToCreateAccount  = "Failed to create account"
+	LogMsgAccountCreated         = "Account created successfully"
+	LogMsgFailedToGetAccount     = "Failed to get account"
+	LogMsgFailedToGetForUpdate   = "Failed to get account for update"
+	LogMsgFailedToUpdateBalance  = "Failed to update account balance"
+)
+
+// Log field key constants
+const (
+	LogFieldName           = "name"
+	LogFieldEnv            = "env"
+	LogFieldPort           = "port"
+	LogFieldOpsPort        = "ops_port"
+	LogFieldAddr           = "addr"
+	LogFieldDelaySeconds   = "delay_seconds"
+	LogFieldBytesWritten   = "bytes_written"
+	LogFieldTransactionID  = "transaction_id"
+	LogFieldCurrentBalance = "current_balance"
+	LogFieldRequestedAmt   = "requested_amount"
+	LogFieldNewBalance     = "new_balance"
+	LogFieldInitialBalance = "initial_balance"
 )

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/internal-transfers-service/internal/constants"
 	"github.com/internal-transfers-service/internal/logger"
 	"github.com/internal-transfers-service/pkg/apperror"
 	"github.com/internal-transfers-service/pkg/database"
@@ -84,16 +85,16 @@ func (r *Repository) Create(ctx context.Context, account *Account) error {
 	)
 
 	if err != nil {
-		logger.Ctx(ctx).Errorw("Failed to create account",
-			"account_id", account.AccountID,
-			"error", err,
+		logger.Ctx(ctx).Errorw(constants.LogMsgFailedToCreateAccount,
+			constants.LogKeyAccountID, account.AccountID,
+			constants.LogKeyError, err,
 		)
 		return err
 	}
 
-	logger.Ctx(ctx).Infow("Account created",
-		"account_id", account.AccountID,
-		"initial_balance", account.Balance.String(),
+	logger.Ctx(ctx).Infow(constants.LogMsgAccountCreated,
+		constants.LogKeyAccountID, account.AccountID,
+		constants.LogFieldInitialBalance, account.Balance.String(),
 	)
 	return nil
 }
@@ -111,11 +112,11 @@ func (r *Repository) GetByID(ctx context.Context, accountID int64) (*Account, er
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, apperror.New(apperror.CodeNotFound, err).
-				WithField("account_id", accountID)
+				WithField(apperror.FieldAccountID, accountID)
 		}
-		logger.Ctx(ctx).Errorw("Failed to get account",
-			"account_id", accountID,
-			"error", err,
+		logger.Ctx(ctx).Errorw(constants.LogMsgFailedToGetAccount,
+			constants.LogKeyAccountID, accountID,
+			constants.LogKeyError, err,
 		)
 		return nil, err
 	}
@@ -136,11 +137,11 @@ func (r *Repository) GetForUpdate(ctx context.Context, tx pgx.Tx, accountID int6
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, apperror.New(apperror.CodeNotFound, err).
-				WithField("account_id", accountID)
+				WithField(apperror.FieldAccountID, accountID)
 		}
-		logger.Ctx(ctx).Errorw("Failed to get account for update",
-			"account_id", accountID,
-			"error", err,
+		logger.Ctx(ctx).Errorw(constants.LogMsgFailedToGetForUpdate,
+			constants.LogKeyAccountID, accountID,
+			constants.LogKeyError, err,
 		)
 		return nil, err
 	}
@@ -153,10 +154,10 @@ func (r *Repository) UpdateBalance(ctx context.Context, tx pgx.Tx, accountID int
 	now := time.Now().UTC()
 	_, err := tx.Exec(ctx, queryUpdateBalance, accountID, newBalance, now)
 	if err != nil {
-		logger.Ctx(ctx).Errorw("Failed to update account balance",
-			"account_id", accountID,
-			"new_balance", newBalance.String(),
-			"error", err,
+		logger.Ctx(ctx).Errorw(constants.LogMsgFailedToUpdateBalance,
+			constants.LogKeyAccountID, accountID,
+			constants.LogFieldNewBalance, newBalance.String(),
+			constants.LogKeyError, err,
 		)
 		return err
 	}
@@ -168,9 +169,9 @@ func (r *Repository) Exists(ctx context.Context, accountID int64) (bool, error) 
 	var exists bool
 	err := r.pool.QueryRow(ctx, queryExists, accountID).Scan(&exists)
 	if err != nil {
-		logger.Ctx(ctx).Errorw("Failed to check account existence",
-			"account_id", accountID,
-			"error", err,
+		logger.Ctx(ctx).Errorw(constants.LogMsgFailedToCheckAcctExist,
+			constants.LogKeyAccountID, accountID,
+			constants.LogKeyError, err,
 		)
 		return false, err
 	}

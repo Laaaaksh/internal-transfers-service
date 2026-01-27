@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/internal-transfers-service/internal/constants"
 	"github.com/internal-transfers-service/internal/logger"
 	"github.com/internal-transfers-service/internal/modules/account"
 	"github.com/internal-transfers-service/internal/modules/transaction/entities"
@@ -67,27 +68,27 @@ func (c *Core) Transfer(ctx context.Context, req *entities.TransferRequest) (*en
 	// Validate same account transfer
 	if req.SourceAccountID == req.DestinationAccountID {
 		return nil, apperror.NewWithMessage(apperror.CodeBadRequest, ErrSameAccountTransfer, apperror.MsgSameAccountTransfer).
-			WithField("source_account_id", req.SourceAccountID).
-			WithField("destination_account_id", req.DestinationAccountID)
+			WithField(apperror.FieldSourceAccount, req.SourceAccountID).
+			WithField(apperror.FieldDestAccount, req.DestinationAccountID)
 	}
 
 	// Parse and validate amount
 	amount, err := decimal.NewFromString(req.Amount)
 	if err != nil {
 		return nil, apperror.NewWithMessage(apperror.CodeBadRequest, ErrInvalidDecimalAmt, apperror.MsgInvalidAmount).
-			WithField("amount", req.Amount)
+			WithField(apperror.FieldAmount, req.Amount)
 	}
 
 	if amount.LessThanOrEqual(decimal.Zero) {
 		return nil, apperror.NewWithMessage(apperror.CodeBadRequest, ErrInvalidAmount, apperror.MsgInvalidAmount).
-			WithField("amount", req.Amount)
+			WithField(apperror.FieldAmount, req.Amount)
 	}
 
 	// Begin transaction
 	tx, err := c.txRepo.BeginTx(ctx)
 	if err != nil {
-		logger.Ctx(ctx).Errorw("Failed to begin transaction",
-			"error", err,
+		logger.Ctx(ctx).Errorw(constants.LogMsgFailedToBeginTx,
+			constants.LogKeyError, err,
 		)
 		return nil, apperror.New(apperror.CodeInternalError, err)
 	}
@@ -102,14 +103,7 @@ func (c *Core) Transfer(ctx context.Context, req *entities.TransferRequest) (*en
 
 	// Lock accounts in consistent order to prevent deadlocks
 	// Always lock the account with the smaller ID first
-	var firstAccountID, secondAccountID int64
-	if req.SourceAccountID < req.DestinationAccountID {
-		firstAccountID = req.SourceAccountID
-		secondAccountID = req.DestinationAccountID
-	} else {
-		firstAccountID = req.DestinationAccountID
-		secondAccountID = req.SourceAccountID
-	}
+	firstAccountID, secondAccountID := orderAccountIDs(req.SourceAccountID, req.DestinationAccountID)
 
 	// Lock first account
 	firstAccount, err := c.accountRepo.GetForUpdate(ctx, tx, firstAccountID)
@@ -124,26 +118,19 @@ func (c *Core) Transfer(ctx context.Context, req *entities.TransferRequest) (*en
 	}
 
 	// Determine which is source and which is destination
-	var sourceAccount, destAccount *account.Account
-	if firstAccountID == req.SourceAccountID {
-		sourceAccount = firstAccount
-		destAccount = secondAccount
-	} else {
-		sourceAccount = secondAccount
-		destAccount = firstAccount
-	}
+	sourceAccount, destAccount := assignSourceAndDest(firstAccountID, req.SourceAccountID, firstAccount, secondAccount)
 
 	// Check sufficient balance
 	if sourceAccount.Balance.LessThan(amount) {
-		logger.Ctx(ctx).Warnw("Insufficient balance for transfer",
-			"source_account_id", req.SourceAccountID,
-			"current_balance", sourceAccount.Balance.String(),
-			"requested_amount", amount.String(),
+		logger.Ctx(ctx).Warnw(constants.LogMsgInsufficientBalance,
+			constants.LogKeySourceAccount, req.SourceAccountID,
+			constants.LogFieldCurrentBalance, sourceAccount.Balance.String(),
+			constants.LogFieldRequestedAmt, amount.String(),
 		)
 		return nil, apperror.NewWithMessage(apperror.CodeInsufficientFunds, ErrInsufficientBalance, apperror.MsgInsufficientBalance).
-			WithField("source_account_id", req.SourceAccountID).
-			WithField("current_balance", sourceAccount.Balance.String()).
-			WithField("requested_amount", amount.String())
+			WithField(apperror.FieldSourceAccount, req.SourceAccountID).
+			WithField(constants.LogFieldCurrentBalance, sourceAccount.Balance.String()).
+			WithField(constants.LogFieldRequestedAmt, amount.String())
 	}
 
 	// Calculate new balances
@@ -152,18 +139,18 @@ func (c *Core) Transfer(ctx context.Context, req *entities.TransferRequest) (*en
 
 	// Update source account balance
 	if err := c.accountRepo.UpdateBalance(ctx, tx, sourceAccount.AccountID, newSourceBalance); err != nil {
-		logger.Ctx(ctx).Errorw("Failed to update source account balance",
-			"account_id", sourceAccount.AccountID,
-			"error", err,
+		logger.Ctx(ctx).Errorw(constants.LogMsgFailedToUpdateSourceBal,
+			constants.LogKeyAccountID, sourceAccount.AccountID,
+			constants.LogKeyError, err,
 		)
 		return nil, apperror.New(apperror.CodeInternalError, err)
 	}
 
 	// Update destination account balance
 	if err := c.accountRepo.UpdateBalance(ctx, tx, destAccount.AccountID, newDestBalance); err != nil {
-		logger.Ctx(ctx).Errorw("Failed to update destination account balance",
-			"account_id", destAccount.AccountID,
-			"error", err,
+		logger.Ctx(ctx).Errorw(constants.LogMsgFailedToUpdateDestBal,
+			constants.LogKeyAccountID, destAccount.AccountID,
+			constants.LogKeyError, err,
 		)
 		return nil, apperror.New(apperror.CodeInternalError, err)
 	}
@@ -176,31 +163,47 @@ func (c *Core) Transfer(ctx context.Context, req *entities.TransferRequest) (*en
 	}
 
 	if err := c.txRepo.Create(ctx, tx, txRecord); err != nil {
-		logger.Ctx(ctx).Errorw("Failed to create transaction record",
-			"error", err,
+		logger.Ctx(ctx).Errorw(constants.LogMsgFailedToCreateTxRecord,
+			constants.LogKeyError, err,
 		)
 		return nil, apperror.New(apperror.CodeInternalError, err)
 	}
 
 	// Commit transaction
 	if err := tx.Commit(ctx); err != nil {
-		logger.Ctx(ctx).Errorw("Failed to commit transaction",
-			"error", err,
+		logger.Ctx(ctx).Errorw(constants.LogMsgFailedToCommitTx,
+			constants.LogKeyError, err,
 		)
 		return nil, apperror.New(apperror.CodeInternalError, err)
 	}
 	committed = true
 
-	logger.Ctx(ctx).Infow("Transfer completed successfully",
-		"transaction_id", txRecord.ID.String(),
-		"source_account_id", req.SourceAccountID,
-		"destination_account_id", req.DestinationAccountID,
-		"amount", amount.String(),
+	logger.Ctx(ctx).Infow(constants.LogMsgTransferCompleted,
+		constants.LogFieldTransactionID, txRecord.ID.String(),
+		constants.LogKeySourceAccount, req.SourceAccountID,
+		constants.LogKeyDestAccount, req.DestinationAccountID,
+		constants.LogKeyAmount, amount.String(),
 	)
 
 	return &entities.TransferResponse{
 		TransactionID: txRecord.ID.String(),
 	}, nil
+}
+
+// orderAccountIDs returns account IDs in ascending order for consistent locking
+func orderAccountIDs(sourceID, destID int64) (first, second int64) {
+	if sourceID < destID {
+		return sourceID, destID
+	}
+	return destID, sourceID
+}
+
+// assignSourceAndDest assigns accounts to source and destination based on the first account ID
+func assignSourceAndDest(firstAccountID, sourceAccountID int64, firstAccount, secondAccount *account.Account) (*account.Account, *account.Account) {
+	if firstAccountID == sourceAccountID {
+		return firstAccount, secondAccount
+	}
+	return secondAccount, firstAccount
 }
 
 // handleAccountError converts account errors to appropriate API errors

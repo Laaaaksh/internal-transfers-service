@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/internal-transfers-service/internal/config"
+	"github.com/internal-transfers-service/internal/constants"
 	"github.com/internal-transfers-service/internal/logger"
 	"github.com/internal-transfers-service/internal/modules/account"
 	"github.com/internal-transfers-service/internal/modules/health"
@@ -37,17 +38,17 @@ func main() {
 	}
 	defer logger.Sync()
 
-	logger.Info("Starting service",
-		"name", cfg.App.Name,
-		"env", cfg.App.Env,
-		"port", cfg.App.Port,
-		"ops_port", cfg.App.OpsPort,
+	logger.Info(constants.LogMsgStartingService,
+		constants.LogFieldName, cfg.App.Name,
+		constants.LogFieldEnv, cfg.App.Env,
+		constants.LogFieldPort, cfg.App.Port,
+		constants.LogFieldOpsPort, cfg.App.OpsPort,
 	)
 
 	// Initialize database
 	db, err := database.Initialize(ctx, &cfg.Database)
 	if err != nil {
-		logger.Fatal("Failed to initialize database", "error", err)
+		logger.Fatal(constants.LogMsgFailedToInitDB, constants.LogKeyError, err)
 	}
 	defer db.Close()
 
@@ -86,17 +87,17 @@ func main() {
 
 	// Start main server in goroutine
 	go func() {
-		logger.Info("Main HTTP server starting", "addr", cfg.App.Port)
+		logger.Info(constants.LogMsgMainServerStarting, constants.LogFieldAddr, cfg.App.Port)
 		if err := mainServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.Fatal("Main server failed", "error", err)
+			logger.Fatal(constants.LogMsgMainServerFailed, constants.LogKeyError, err)
 		}
 	}()
 
 	// Start ops server in goroutine
 	go func() {
-		logger.Info("Ops HTTP server starting", "addr", cfg.App.OpsPort)
+		logger.Info(constants.LogMsgOpsServerStarting, constants.LogFieldAddr, cfg.App.OpsPort)
 		if err := opsServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.Fatal("Ops server failed", "error", err)
+			logger.Fatal(constants.LogMsgOpsServerFailed, constants.LogKeyError, err)
 		}
 	}()
 
@@ -105,13 +106,13 @@ func main() {
 	signal.Notify(c, syscall.SIGTERM, syscall.SIGINT)
 	<-c
 
-	logger.Info("Shutdown signal received, initiating graceful shutdown")
+	logger.Info(constants.LogMsgShutdownSignalReceived)
 
 	// Mark service as unhealthy
 	healthModule.GetCore().MarkUnhealthy()
 
 	// Wait for shutdown delay to allow load balancer to drain connections
-	logger.Info("Waiting for shutdown delay", "delay_seconds", cfg.App.ShutdownDelay)
+	logger.Info(constants.LogMsgWaitingForShutdownDelay, constants.LogFieldDelaySeconds, cfg.App.ShutdownDelay)
 	time.Sleep(time.Duration(cfg.App.ShutdownDelay) * time.Second)
 
 	// Create shutdown context with timeout
@@ -122,34 +123,38 @@ func main() {
 	shutdownComplete := make(chan struct{})
 	go func() {
 		defer close(shutdownComplete)
-
-		// Shutdown main server
-		if err := mainServer.Shutdown(shutdownCtx); err != nil {
-			logger.Error("Main server shutdown error", "error", err)
-		} else {
-			logger.Info("Main server shutdown complete")
-		}
-
-		// Shutdown ops server
-		if err := opsServer.Shutdown(shutdownCtx); err != nil {
-			logger.Error("Ops server shutdown error", "error", err)
-		} else {
-			logger.Info("Ops server shutdown complete")
-		}
+		shutdownServers(shutdownCtx, mainServer, opsServer)
 	}()
 
 	// Wait for shutdown to complete
 	select {
 	case <-shutdownComplete:
-		logger.Info("Graceful shutdown complete")
+		logger.Info(constants.LogMsgGracefulShutdownComplete)
 	case <-shutdownCtx.Done():
-		logger.Warn("Shutdown timeout exceeded, forcing exit")
+		logger.Warn(constants.LogMsgShutdownTimeoutExceeded)
 	}
 
 	// Cancel context to cleanup any remaining resources
 	cancel()
 
-	logger.Info("Service stopped")
+	logger.Info(constants.LogMsgServiceStopped)
+}
+
+// shutdownServers gracefully shuts down the main and ops servers
+func shutdownServers(ctx context.Context, mainServer, opsServer *http.Server) {
+	// Shutdown main server
+	if err := mainServer.Shutdown(ctx); err != nil {
+		logger.Error(constants.LogMsgMainServerShutdownErr, constants.LogKeyError, err)
+		return
+	}
+	logger.Info(constants.LogMsgMainServerShutdownDone)
+
+	// Shutdown ops server
+	if err := opsServer.Shutdown(ctx); err != nil {
+		logger.Error(constants.LogMsgOpsServerShutdownErr, constants.LogKeyError, err)
+		return
+	}
+	logger.Info(constants.LogMsgOpsServerShutdownDone)
 }
 
 // requestLogger is a middleware that logs HTTP requests
@@ -164,12 +169,12 @@ func requestLogger(next http.Handler) http.Handler {
 
 		duration := time.Since(start)
 
-		logger.Ctx(r.Context()).Infow("HTTP request completed",
-			"method", r.Method,
-			"path", r.URL.Path,
-			"status_code", ww.Status(),
-			"duration_ms", duration.Milliseconds(),
-			"bytes_written", ww.BytesWritten(),
+		logger.Ctx(r.Context()).Infow(constants.LogMsgHTTPRequestCompleted,
+			constants.LogKeyMethod, r.Method,
+			constants.LogKeyPath, r.URL.Path,
+			constants.LogKeyStatusCode, ww.Status(),
+			constants.LogKeyDuration, duration.Milliseconds(),
+			constants.LogFieldBytesWritten, ww.BytesWritten(),
 		)
 	})
 }

@@ -12,6 +12,13 @@ import (
 	"github.com/internal-transfers-service/pkg/apperror"
 )
 
+// Route path constants
+const (
+	routeAccounts   = "/accounts"
+	routeAccountByID = "/accounts/{accountID}"
+	paramAccountID   = "accountID"
+)
+
 // HTTPHandler handles HTTP requests for account operations
 type HTTPHandler struct {
 	core ICore
@@ -24,8 +31,8 @@ func NewHTTPHandler(core ICore) *HTTPHandler {
 
 // RegisterRoutes registers the account routes with the router
 func (h *HTTPHandler) RegisterRoutes(r chi.Router) {
-	r.Post("/accounts", h.CreateAccount)
-	r.Get("/accounts/{accountID}", h.GetAccount)
+	r.Post(routeAccounts, h.CreateAccount)
+	r.Get(routeAccountByID, h.GetAccount)
 }
 
 // CreateAccount handles POST /accounts
@@ -43,8 +50,8 @@ func (h *HTTPHandler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Ctx(ctx).Infow("Account created via HTTP",
-		"account_id", req.AccountID,
+	logger.Ctx(ctx).Infow(constants.LogMsgAccountCreatedViaHTTP,
+		constants.LogKeyAccountID, req.AccountID,
 	)
 
 	w.WriteHeader(http.StatusCreated)
@@ -54,11 +61,11 @@ func (h *HTTPHandler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 func (h *HTTPHandler) GetAccount(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	accountIDStr := chi.URLParam(r, "accountID")
+	accountIDStr := chi.URLParam(r, paramAccountID)
 	accountID, err := strconv.ParseInt(accountIDStr, 10, 64)
 	if err != nil {
 		h.writeError(w, apperror.New(apperror.CodeBadRequest, ErrInvalidAccountID).
-			WithField("account_id", accountIDStr))
+			WithField(apperror.FieldAccountID, accountIDStr))
 		return
 	}
 
@@ -77,7 +84,7 @@ func (h *HTTPHandler) writeJSON(w http.ResponseWriter, status int, data interfac
 	w.WriteHeader(status)
 	if data != nil {
 		if err := json.NewEncoder(w).Encode(data); err != nil {
-			logger.Error("Failed to encode response", "error", err)
+			logger.Error(constants.LogMsgFailedToEncodeResponse, constants.LogKeyError, err)
 		}
 	}
 }

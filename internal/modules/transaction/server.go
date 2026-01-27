@@ -11,6 +11,11 @@ import (
 	"github.com/internal-transfers-service/pkg/apperror"
 )
 
+// Route path constants
+const (
+	routeTransactions = "/transactions"
+)
+
 // HTTPHandler handles HTTP requests for transaction operations
 type HTTPHandler struct {
 	core ICore
@@ -23,7 +28,7 @@ func NewHTTPHandler(core ICore) *HTTPHandler {
 
 // RegisterRoutes registers the transaction routes with the router
 func (h *HTTPHandler) RegisterRoutes(r chi.Router) {
-	r.Post("/transactions", h.CreateTransaction)
+	r.Post(routeTransactions, h.CreateTransaction)
 }
 
 // CreateTransaction handles POST /transactions
@@ -42,10 +47,10 @@ func (h *HTTPHandler) CreateTransaction(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	logger.Ctx(ctx).Infow("Transaction created via HTTP",
-		"transaction_id", response.TransactionID,
-		"source_account_id", req.SourceAccountID,
-		"destination_account_id", req.DestinationAccountID,
+	logger.Ctx(ctx).Infow(constants.LogMsgTransactionCreatedHTTP,
+		constants.LogFieldTransactionID, response.TransactionID,
+		constants.LogKeySourceAccount, req.SourceAccountID,
+		constants.LogKeyDestAccount, req.DestinationAccountID,
 	)
 
 	h.writeJSON(w, http.StatusCreated, response)
@@ -57,7 +62,7 @@ func (h *HTTPHandler) writeJSON(w http.ResponseWriter, status int, data interfac
 	w.WriteHeader(status)
 	if data != nil {
 		if err := json.NewEncoder(w).Encode(data); err != nil {
-			logger.Error("Failed to encode response", "error", err)
+			logger.Error(constants.LogMsgFailedToEncodeResponse, constants.LogKeyError, err)
 		}
 	}
 }

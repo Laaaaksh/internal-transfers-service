@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/internal-transfers-service/internal/constants"
 	"github.com/internal-transfers-service/internal/logger"
 	"github.com/internal-transfers-service/internal/modules/account/entities"
 	"github.com/internal-transfers-service/pkg/apperror"
@@ -63,35 +64,35 @@ func (c *Core) Create(ctx context.Context, req *entities.CreateAccountRequest) a
 	// Validate account ID
 	if req.AccountID <= 0 {
 		return apperror.New(apperror.CodeBadRequest, ErrInvalidAccountID).
-			WithField("account_id", req.AccountID)
+			WithField(apperror.FieldAccountID, req.AccountID)
 	}
 
 	// Parse and validate initial balance
 	balance, err := decimal.NewFromString(req.InitialBalance)
 	if err != nil {
 		return apperror.New(apperror.CodeBadRequest, ErrInvalidDecimal).
-			WithField("initial_balance", req.InitialBalance)
+			WithField(constants.LogFieldInitialBalance, req.InitialBalance)
 	}
 
 	if balance.IsNegative() {
 		return apperror.New(apperror.CodeBadRequest, ErrInvalidBalance).
-			WithField("initial_balance", req.InitialBalance)
+			WithField(constants.LogFieldInitialBalance, req.InitialBalance)
 	}
 
 	// Check if account already exists
 	exists, err := c.repo.Exists(ctx, req.AccountID)
 	if err != nil {
-		logger.Ctx(ctx).Errorw("Failed to check account existence",
-			"account_id", req.AccountID,
-			"error", err,
+		logger.Ctx(ctx).Errorw(constants.LogMsgFailedToCheckAcctExist,
+			constants.LogKeyAccountID, req.AccountID,
+			constants.LogKeyError, err,
 		)
 		return apperror.New(apperror.CodeInternalError, err).
-			WithField("account_id", req.AccountID)
+			WithField(apperror.FieldAccountID, req.AccountID)
 	}
 
 	if exists {
 		return apperror.NewWithMessage(apperror.CodeConflict, ErrAccountExists, apperror.MsgDuplicateAccount).
-			WithField("account_id", req.AccountID)
+			WithField(apperror.FieldAccountID, req.AccountID)
 	}
 
 	// Create the account
@@ -101,17 +102,17 @@ func (c *Core) Create(ctx context.Context, req *entities.CreateAccountRequest) a
 	}
 
 	if err := c.repo.Create(ctx, account); err != nil {
-		logger.Ctx(ctx).Errorw("Failed to create account",
-			"account_id", req.AccountID,
-			"error", err,
+		logger.Ctx(ctx).Errorw(constants.LogMsgFailedToCreateAccount,
+			constants.LogKeyAccountID, req.AccountID,
+			constants.LogKeyError, err,
 		)
 		return apperror.New(apperror.CodeInternalError, err).
-			WithField("account_id", req.AccountID)
+			WithField(apperror.FieldAccountID, req.AccountID)
 	}
 
-	logger.Ctx(ctx).Infow("Account created successfully",
-		"account_id", req.AccountID,
-		"initial_balance", balance.String(),
+	logger.Ctx(ctx).Infow(constants.LogMsgAccountCreated,
+		constants.LogKeyAccountID, req.AccountID,
+		constants.LogFieldInitialBalance, balance.String(),
 	)
 
 	return nil
@@ -122,7 +123,7 @@ func (c *Core) GetByID(ctx context.Context, accountID int64) (*entities.AccountR
 	// Validate account ID
 	if accountID <= 0 {
 		return nil, apperror.New(apperror.CodeBadRequest, ErrInvalidAccountID).
-			WithField("account_id", accountID)
+			WithField(apperror.FieldAccountID, accountID)
 	}
 
 	account, err := c.repo.GetByID(ctx, accountID)
@@ -133,7 +134,7 @@ func (c *Core) GetByID(ctx context.Context, accountID int64) (*entities.AccountR
 			return nil, appErr
 		}
 		return nil, apperror.New(apperror.CodeInternalError, err).
-			WithField("account_id", accountID)
+			WithField(apperror.FieldAccountID, accountID)
 	}
 
 	return &entities.AccountResponse{

@@ -5,6 +5,7 @@ import (
 	"context"
 	"os"
 
+	"github.com/internal-transfers-service/internal/constants"
 	"github.com/internal-transfers-service/internal/constants/contextkeys"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -15,38 +16,10 @@ var L *zap.SugaredLogger
 
 // Initialize creates and configures the global logger
 func Initialize(level string, format string) error {
-	var cfg zap.Config
-
-	if format == "json" {
-		cfg = zap.NewProductionConfig()
-	} else {
-		cfg = zap.NewDevelopmentConfig()
-	}
-
-	// Set log level
-	switch level {
-	case "debug":
-		cfg.Level = zap.NewAtomicLevelAt(zapcore.DebugLevel)
-	case "info":
-		cfg.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
-	case "warn":
-		cfg.Level = zap.NewAtomicLevelAt(zapcore.WarnLevel)
-	case "error":
-		cfg.Level = zap.NewAtomicLevelAt(zapcore.ErrorLevel)
-	default:
-		cfg.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
-	}
-
-	// Configure encoder
-	cfg.EncoderConfig.TimeKey = "timestamp"
-	cfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-	cfg.EncoderConfig.MessageKey = "message"
-	cfg.EncoderConfig.LevelKey = "level"
-	cfg.EncoderConfig.CallerKey = "caller"
-
-	// Output to stdout
-	cfg.OutputPaths = []string{"stdout"}
-	cfg.ErrorOutputPaths = []string{"stderr"}
+	cfg := createLogConfig(format)
+	cfg.Level = parseLogLevel(level)
+	configureEncoder(&cfg)
+	configureOutputPaths(&cfg)
 
 	logger, err := cfg.Build(zap.AddCallerSkip(1))
 	if err != nil {
@@ -55,6 +28,45 @@ func Initialize(level string, format string) error {
 
 	L = logger.Sugar()
 	return nil
+}
+
+// createLogConfig returns the appropriate zap config based on format
+func createLogConfig(format string) zap.Config {
+	if format == constants.LogFormatJSON {
+		return zap.NewProductionConfig()
+	}
+	return zap.NewDevelopmentConfig()
+}
+
+// parseLogLevel converts a string log level to zap atomic level
+func parseLogLevel(level string) zap.AtomicLevel {
+	switch level {
+	case constants.LogLevelDebug:
+		return zap.NewAtomicLevelAt(zapcore.DebugLevel)
+	case constants.LogLevelInfo:
+		return zap.NewAtomicLevelAt(zapcore.InfoLevel)
+	case constants.LogLevelWarn:
+		return zap.NewAtomicLevelAt(zapcore.WarnLevel)
+	case constants.LogLevelError:
+		return zap.NewAtomicLevelAt(zapcore.ErrorLevel)
+	default:
+		return zap.NewAtomicLevelAt(zapcore.InfoLevel)
+	}
+}
+
+// configureEncoder sets up the encoder configuration
+func configureEncoder(cfg *zap.Config) {
+	cfg.EncoderConfig.TimeKey = constants.LogEncoderTimeKey
+	cfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	cfg.EncoderConfig.MessageKey = constants.LogEncoderMessageKey
+	cfg.EncoderConfig.LevelKey = constants.LogEncoderLevelKey
+	cfg.EncoderConfig.CallerKey = constants.LogEncoderCallerKey
+}
+
+// configureOutputPaths sets up the output paths
+func configureOutputPaths(cfg *zap.Config) {
+	cfg.OutputPaths = []string{constants.LogOutputStdout}
+	cfg.ErrorOutputPaths = []string{constants.LogOutputStderr}
 }
 
 // Ctx returns a logger with request context fields
@@ -69,7 +81,7 @@ func Ctx(ctx context.Context) *zap.SugaredLogger {
 
 	// Add request ID if present
 	if requestID, ok := ctx.Value(contextkeys.RequestID).(string); ok {
-		logger = logger.With("request_id", requestID)
+		logger = logger.With(constants.LogKeyRequestID, requestID)
 	}
 
 	return logger
@@ -104,7 +116,7 @@ func WithError(err error) *zap.SugaredLogger {
 		l, _ := zap.NewProduction()
 		L = l.Sugar()
 	}
-	return L.With("error", err)
+	return L.With(constants.LogKeyError, err)
 }
 
 // Info logs an info message

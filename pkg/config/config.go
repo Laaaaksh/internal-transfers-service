@@ -42,19 +42,23 @@ type Config struct {
 // NewDefaultOptions returns default configuration options.
 // It uses WORKDIR env var if set, otherwise uses relative path from this file.
 func NewDefaultOptions() Options {
-	var configPath string
+	configPath := resolveConfigPath()
+	return NewOptions(DefaultConfigType, configPath, DefaultConfigFileName)
+}
+
+// resolveConfigPath determines the configuration directory path
+func resolveConfigPath() string {
 	workDir := os.Getenv(WorkDirEnv)
 	if workDir != "" {
-		configPath = path.Join(workDir, DefaultConfigDir)
-	} else {
-		_, thisFile, _, ok := runtime.Caller(1)
-		if ok {
-			configPath = path.Join(path.Dir(thisFile), "../../"+DefaultConfigDir)
-		} else {
-			configPath = DefaultConfigDir
-		}
+		return path.Join(workDir, DefaultConfigDir)
 	}
-	return NewOptions(DefaultConfigType, configPath, DefaultConfigFileName)
+
+	_, thisFile, _, ok := runtime.Caller(2) // Caller(2) because we're one level deeper now
+	if !ok {
+		return DefaultConfigDir
+	}
+
+	return path.Join(path.Dir(thisFile), "../../"+DefaultConfigDir)
 }
 
 // NewOptions creates new Options with specified values.
