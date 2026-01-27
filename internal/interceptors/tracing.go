@@ -61,7 +61,7 @@ func addTraceIDsToContext(ctx context.Context) context.Context {
 
 // formatSpanName formats the span name based on method and path
 func formatSpanName(_ string, r *http.Request) string {
-	return r.Method + " " + r.URL.Path
+	return r.Method + constants.TracingSpanNameSeparator + r.URL.Path
 }
 
 // addCustomSpanAttributes adds custom attributes to the current span

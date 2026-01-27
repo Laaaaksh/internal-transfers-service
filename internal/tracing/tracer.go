@@ -102,7 +102,7 @@ func createSampler(sampleRate float64) sdktrace.Sampler {
 func parseBatchTimeout(timeout string) time.Duration {
 	d, err := time.ParseDuration(timeout)
 	if err != nil {
-		return 5 * time.Second
+		return time.Duration(constants.DefaultTracingBatchTimeoutSecond) * time.Second
 	}
 	return d
 }

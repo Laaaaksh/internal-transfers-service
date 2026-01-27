@@ -372,9 +372,13 @@ const (
 // Tracing constants
 const (
 	// Default tracing configuration values
-	DefaultTracingEndpoint     = "localhost:4317"
-	DefaultTracingSampleRate   = 1.0
-	DefaultTracingBatchTimeout = "5s"
+	DefaultTracingEndpoint           = "localhost:4317"
+	DefaultTracingSampleRate         = 1.0
+	DefaultTracingBatchTimeout       = "5s"
+	DefaultTracingBatchTimeoutSecond = 5
+
+	// Tracing span name format
+	TracingSpanNameSeparator = " "
 
 	// Tracing attribute keys
 	TracingAttrHTTPMethod     = "http.method"
