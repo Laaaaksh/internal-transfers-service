@@ -22,6 +22,14 @@ func (s *CoreTestSuite) SetupTest() {
 	s.ctx = context.Background()
 }
 
+// Test NewCore
+
+func (s *CoreTestSuite) TestNewCoreCreatesHealthyCore() {
+	core := health.NewCore(nil)
+	s.NotNil(core)
+	s.True(core.IsHealthy())
+}
+
 // Test RunLivenessCheck - Success Cases
 
 func (s *CoreTestSuite) TestLivenessCheckWhenHealthyReturnsServing() {
