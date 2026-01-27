@@ -118,6 +118,29 @@ docker run -d \
   internal-transfers-service:latest
 ```
 
+## Assumptions
+
+The following assumptions were made during the design and implementation:
+
+### Business Logic
+- **Account IDs are provided by clients** - The system expects clients to provide unique account IDs rather than auto-generating them
+- **Transfers are synchronous** - All fund transfers are processed immediately and synchronously
+- **Single currency** - The system handles a single currency; multi-currency support is not implemented
+- **No negative balances** - Accounts cannot have negative balances; transfers are rejected if insufficient funds
+- **Decimal precision** - All monetary values use 8 decimal places for financial accuracy
+
+### Technical
+- **PostgreSQL required** - The service requires PostgreSQL 12+ for pessimistic locking support
+- **Single instance initially** - While designed for horizontal scaling, the current implementation assumes single-instance deployment
+- **Idempotency keys are client-provided** - Clients must generate and provide idempotency keys for safe retries
+- **No authentication** - The API does not implement authentication/authorization (assumed to be handled by API gateway)
+- **UTC timestamps** - All timestamps are stored and returned in UTC
+
+### Operational
+- **Health checks for Kubernetes** - Liveness and readiness probes are designed for Kubernetes orchestration
+- **Prometheus metrics** - Metrics are exposed in Prometheus format for observability
+- **Graceful shutdown** - The service implements graceful shutdown with configurable delay for load balancer draining
+
 ## License
 
 MIT
