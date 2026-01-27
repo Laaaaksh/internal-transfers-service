@@ -122,15 +122,21 @@ func captureAndStoreResponse(w http.ResponseWriter, r *http.Request, next http.H
 	recorder := newResponseRecorder(w)
 	next.ServeHTTP(recorder, r)
 
-	if shouldCacheResponse(recorder.statusCode) {
+	if shouldCacheResponse(recorder) {
 		storeResponse(r, repo, key, recorder)
+	} else if recorder.bodyCapped {
+		logger.Ctx(r.Context()).Debugw(entities.LogMsgIdempotencyResponseTooBig,
+			entities.LogFieldIdempotencyKey, key,
+			constants.LogKeyStatusCode, recorder.statusCode,
+		)
 	}
 }
 
 // shouldCacheResponse determines if the response should be cached.
-// Only caches 2xx-4xx responses (not 5xx server errors).
-func shouldCacheResponse(statusCode int) bool {
-	return statusCode >= 200 && statusCode < 500
+// Only caches 2xx-4xx responses (not 5xx server errors) and responses under the size limit.
+func shouldCacheResponse(recorder *responseRecorder) bool {
+	statusCodeCacheable := recorder.statusCode >= 200 && recorder.statusCode < 500
+	return statusCodeCacheable && recorder.isCacheable()
 }
 
 // storeResponse stores the response in the idempotency cache.
@@ -151,10 +157,12 @@ func storeResponse(r *http.Request, repo idempotency.IRepository, key string, re
 }
 
 // responseRecorder captures the response for storage.
+// It limits the cached body size to prevent memory issues with large responses.
 type responseRecorder struct {
 	http.ResponseWriter
 	statusCode int
 	body       *bytes.Buffer
+	bodyCapped bool // true if we stopped capturing due to size limit
 }
 
 // newResponseRecorder creates a new response recorder.
@@ -163,6 +171,7 @@ func newResponseRecorder(w http.ResponseWriter) *responseRecorder {
 		ResponseWriter: w,
 		statusCode:     http.StatusOK,
 		body:           &bytes.Buffer{},
+		bodyCapped:     false,
 	}
 }
 
@@ -173,7 +182,26 @@ func (r *responseRecorder) WriteHeader(code int) {
 }
 
 // Write captures the body and writes it to the underlying writer.
+// Only captures up to MaxCachedResponseSize bytes to prevent memory issues.
 func (r *responseRecorder) Write(b []byte) (int, error) {
-	r.body.Write(b)
+	if !r.bodyCapped {
+		remaining := entities.MaxCachedResponseSize - r.body.Len()
+		if remaining > 0 {
+			if len(b) <= remaining {
+				r.body.Write(b)
+			} else {
+				r.body.Write(b[:remaining])
+				r.bodyCapped = true
+			}
+		} else {
+			r.bodyCapped = true
+		}
+	}
 	return r.ResponseWriter.Write(b)
+}
+
+// isCacheable returns true if the response can be cached.
+// Returns false if the body exceeded the max size limit.
+func (r *responseRecorder) isCacheable() bool {
+	return !r.bodyCapped
 }

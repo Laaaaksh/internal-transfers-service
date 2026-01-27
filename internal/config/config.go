@@ -22,6 +22,7 @@ type Config struct {
 	Logging     LoggingConfig     `mapstructure:"logging"`
 	Metrics     MetricsConfig     `mapstructure:"metrics"`
 	Idempotency IdempotencyConfig `mapstructure:"idempotency"`
+	Security    SecurityConfig    `mapstructure:"security"`
 }
 
 // AppConfig holds application-level configuration
@@ -63,6 +64,11 @@ type MetricsConfig struct {
 // IdempotencyConfig holds idempotency configuration
 type IdempotencyConfig struct {
 	TTL string `mapstructure:"ttl"`
+}
+
+// SecurityConfig holds security-related configuration
+type SecurityConfig struct {
+	CORSAllowOrigin string `mapstructure:"cors_allow_origin"`
 }
 
 // C is the global configuration instance

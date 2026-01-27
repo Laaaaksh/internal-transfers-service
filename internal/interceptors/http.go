@@ -4,7 +4,6 @@ package interceptors
 import (
 	"net/http"
 	"runtime"
-	"strconv"
 	"strings"
 	"time"
 
@@ -249,20 +248,29 @@ func buildErrorResponse(errMsg, errCode string) string {
 		constants.JSONSuffix
 }
 
-// CORSMiddleware adds basic CORS headers.
+// CORSMiddleware adds basic CORS headers with default origin (*).
+// For production, use CORSMiddlewareWithOrigin with a specific origin.
 func CORSMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set(constants.HeaderAccessControlAllowOrigin, constants.CORSAllowOriginAll)
-		w.Header().Set(constants.HeaderAccessControlAllowMethods, constants.CORSAllowMethodsAll)
-		w.Header().Set(constants.HeaderAccessControlAllowHeaders, constants.CORSAllowHeadersCommon)
+	return CORSMiddlewareWithOrigin(constants.CORSAllowOriginAll)(next)
+}
 
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
+// CORSMiddlewareWithOrigin creates a CORS middleware with a configurable origin.
+// Use this in production with a specific origin instead of "*".
+func CORSMiddlewareWithOrigin(allowOrigin string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set(constants.HeaderAccessControlAllowOrigin, allowOrigin)
+			w.Header().Set(constants.HeaderAccessControlAllowMethods, constants.CORSAllowMethodsAll)
+			w.Header().Set(constants.HeaderAccessControlAllowHeaders, constants.CORSAllowHeadersCommon)
 
-		next.ServeHTTP(w, r)
-	})
+			if r.Method == http.MethodOptions {
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 // ContentTypeMiddleware ensures JSON content type for API responses.
@@ -272,11 +280,6 @@ func ContentTypeMiddleware(next http.Handler) http.Handler {
 		w.Header().Set(constants.HeaderContentType, constants.ContentTypeJSON)
 		next.ServeHTTP(w, r)
 	})
-}
-
-// statusCodeToString converts HTTP status code to string
-func statusCodeToString(code int) string {
-	return strconv.Itoa(code)
 }
 
 // SecurityHeadersMiddleware adds standard security headers to responses.

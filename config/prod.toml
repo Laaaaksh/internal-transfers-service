@@ -27,3 +27,8 @@ enabled = true
 
 [idempotency]
 ttl = "48h"
+
+[security]
+# Production CORS - must be explicitly set via CORS_ALLOW_ORIGIN env var
+# Do NOT use "*" in production for financial APIs
+cors_allow_origin = "${CORS_ALLOW_ORIGIN}"

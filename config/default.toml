@@ -32,3 +32,7 @@ path = "/metrics"
 
 [idempotency]
 ttl = "24h"
+
+[security]
+# CORS origin - use specific origin in production, "*" for development
+cors_allow_origin = "${CORS_ALLOW_ORIGIN:-*}"
