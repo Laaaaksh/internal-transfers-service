@@ -84,7 +84,11 @@ func (r *Repository) Create(ctx context.Context, tx pgx.Tx, transaction *Transac
 	return nil
 }
 
-// BeginTx starts a new database transaction
+// BeginTx starts a new database transaction with explicit isolation level.
+// Uses ReadCommitted isolation which is appropriate for financial transactions
+// when combined with pessimistic locking (SELECT ... FOR UPDATE).
 func (r *Repository) BeginTx(ctx context.Context) (pgx.Tx, error) {
-	return r.pool.Begin(ctx)
+	return r.pool.BeginTx(ctx, pgx.TxOptions{
+		IsoLevel: pgx.ReadCommitted,
+	})
 }

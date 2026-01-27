@@ -140,6 +140,39 @@ docker run -d \
   internal-transfers-service:latest
 ```
 
+## API Design Decisions
+
+### Transaction Response Enhancement
+
+The original specification suggests returning an empty response for successful transactions. This implementation intentionally returns a `transaction_id` in the response:
+
+```json
+{"transaction_id": "550e8400-e29b-41d4-a716-446655440000"}
+```
+
+**Rationale**: Returning a unique transaction identifier provides significant value:
+- Clients can track and reference specific transactions
+- Enables easier debugging and support
+- Supports audit trail requirements
+- Follows RESTful best practices for resource creation
+
+### Decimal Precision
+
+All monetary values are validated to a maximum of 8 decimal places, matching the database schema `DECIMAL(19,8)`. Requests exceeding this precision will receive a 400 Bad Request error.
+
+## Security Features
+
+This service implements production-grade security measures:
+
+| Feature | Description |
+|---------|-------------|
+| **Request Size Limit** | Maximum 1MB request body to prevent DoS attacks |
+| **Content-Type Validation** | Strict `application/json` validation on mutating requests |
+| **Security Headers** | `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Cache-Control: no-store` |
+| **Request Timeout** | 30-second timeout on all requests |
+| **Idempotency** | Safe retries with `X-Idempotency-Key` header |
+| **Pessimistic Locking** | Ordered row locks to prevent deadlocks and race conditions |
+
 ## Assumptions
 
 The following assumptions were made during the design and implementation:

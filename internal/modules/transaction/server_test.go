@@ -118,7 +118,7 @@ func (s *ServerTestSuite) TestCreateTransactionWithInvalidJSONReturnsBadRequest(
 
 	s.Equal(http.StatusBadRequest, rec.Code)
 
-	var response entities.ErrorResponse
+	var response apperror.ErrorResponse
 	err := json.NewDecoder(rec.Body).Decode(&response)
 	s.NoError(err)
 	s.NotEmpty(response.Error)

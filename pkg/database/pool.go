@@ -18,6 +18,7 @@ type IPool interface {
 	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 	Begin(ctx context.Context) (pgx.Tx, error)
+	BeginTx(ctx context.Context, txOptions pgx.TxOptions) (pgx.Tx, error)
 }
 
 // PoolWrapper wraps *pgxpool.Pool to implement IPool interface.
@@ -48,9 +49,14 @@ func (p *PoolWrapper) Query(ctx context.Context, sql string, args ...any) (pgx.R
 	return p.pool.Query(ctx, sql, args...)
 }
 
-// Begin starts a transaction
+// Begin starts a transaction with default options
 func (p *PoolWrapper) Begin(ctx context.Context) (pgx.Tx, error) {
 	return p.pool.Begin(ctx)
+}
+
+// BeginTx starts a transaction with explicit options (isolation level, access mode)
+func (p *PoolWrapper) BeginTx(ctx context.Context, txOptions pgx.TxOptions) (pgx.Tx, error) {
+	return p.pool.BeginTx(ctx, txOptions)
 }
 
 // GetUnderlyingPool returns the underlying pgxpool.Pool

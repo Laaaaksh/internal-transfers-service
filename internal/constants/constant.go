@@ -263,6 +263,55 @@ const (
 
 // Environment variable keys
 const (
-	EnvKeyAppEnv = "APP_ENV"
+	EnvKeyAppEnv  = "APP_ENV"
 	EnvDefaultDev = "dev"
+)
+
+// Security middleware constants
+const (
+	// MaxRequestBodySize is the maximum allowed request body size (1 MB)
+	MaxRequestBodySize = 1 << 20
+
+	// Security headers
+	HeaderXContentTypeOptions = "X-Content-Type-Options"
+	HeaderXFrameOptions       = "X-Frame-Options"
+	HeaderCacheControl        = "Cache-Control"
+
+	// Security header values
+	ValueNoSniff  = "nosniff"
+	ValueDeny     = "DENY"
+	ValueNoStore  = "no-store"
+
+	// Content-Type validation
+	ContentTypeJSONPrefix = "application/json"
+)
+
+// HTTP status code for unsupported media type
+const (
+	HTTPStatusUnsupportedMediaType = 415
+)
+
+// Error messages for security middlewares
+const (
+	ErrMsgUnsupportedMediaType = "Content-Type must be application/json"
+	ErrMsgRequestBodyTooLarge  = "Request body too large"
+	ErrCodeUnsupportedMedia    = "UNSUPPORTED_MEDIA_TYPE"
+	ErrCodeBodyTooLarge        = "REQUEST_BODY_TOO_LARGE"
+)
+
+// Log messages for security middlewares
+const (
+	LogMsgInvalidContentType  = "Invalid Content-Type header"
+	LogMsgRequestBodyTooLarge = "Request body exceeds size limit"
+)
+
+// Decimal validation constants
+const (
+	// MaxDecimalPlaces is the maximum number of decimal places allowed (matches DB DECIMAL(19,8))
+	MaxDecimalPlaces = 8
+)
+
+// Log messages for decimal validation
+const (
+	LogMsgTooManyDecimalPlaces = "Too many decimal places in value"
 )

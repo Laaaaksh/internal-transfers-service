@@ -29,7 +29,7 @@ var (
 type RepositoryTestSuite struct {
 	suite.Suite
 	ctrl     *gomock.Controller
-	mockPool *dbmock.MockPool
+	mockPool *dbmock.MockIPool
 	mockRow  *dbmock.MockRow
 	mockTx   *dbmock.MockTx
 	repo     account.IRepository
@@ -42,7 +42,7 @@ func TestRepositorySuite(t *testing.T) {
 
 func (s *RepositoryTestSuite) SetupTest() {
 	s.ctrl = gomock.NewController(s.T())
-	s.mockPool = dbmock.NewMockPool(s.ctrl)
+	s.mockPool = dbmock.NewMockIPool(s.ctrl)
 	s.mockRow = dbmock.NewMockRow(s.ctrl)
 	s.mockTx = dbmock.NewMockTx(s.ctrl)
 	s.ctx = context.Background()

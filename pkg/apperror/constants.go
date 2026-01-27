@@ -37,4 +37,11 @@ const (
 	MsgInvalidDecimalFormat  = "The provided value is not a valid decimal number."
 	MsgNegativeBalance       = "Balance cannot be negative."
 	MsgInvalidJSONBody       = "Invalid JSON in request body."
+	MsgTooManyDecimalPlaces  = "Value exceeds maximum precision of 8 decimal places."
+)
+
+// Additional field keys
+const (
+	FieldDecimalPlaces = "decimal_places"
+	FieldMaxAllowed    = "max_allowed"
 )

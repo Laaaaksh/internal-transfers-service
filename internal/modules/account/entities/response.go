@@ -6,10 +6,5 @@ type AccountResponse struct {
 	Balance   string `json:"balance"`
 }
 
-// ErrorResponse represents a standardized error response
-type ErrorResponse struct {
-	Error     string                 `json:"error"`
-	Code      string                 `json:"code,omitempty"`
-	RequestID string                 `json:"request_id,omitempty"`
-	Details   map[string]interface{} `json:"details,omitempty"`
-}
+// NOTE: ErrorResponse has been consolidated to pkg/apperror/response.go
+// Import github.com/internal-transfers-service/pkg/apperror for ErrorResponse

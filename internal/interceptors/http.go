@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"runtime"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
@@ -276,4 +277,80 @@ func ContentTypeMiddleware(next http.Handler) http.Handler {
 // statusCodeToString converts HTTP status code to string
 func statusCodeToString(code int) string {
 	return strconv.Itoa(code)
+}
+
+// SecurityHeadersMiddleware adds standard security headers to responses.
+func SecurityHeadersMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		setSecurityHeaders(w)
+		next.ServeHTTP(w, r)
+	})
+}
+
+// setSecurityHeaders sets the standard security headers
+func setSecurityHeaders(w http.ResponseWriter) {
+	w.Header().Set(constants.HeaderXContentTypeOptions, constants.ValueNoSniff)
+	w.Header().Set(constants.HeaderXFrameOptions, constants.ValueDeny)
+	w.Header().Set(constants.HeaderCacheControl, constants.ValueNoStore)
+}
+
+// MaxBytesMiddleware limits the size of request bodies to prevent DoS attacks.
+func MaxBytesMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, constants.MaxRequestBodySize)
+		next.ServeHTTP(w, r)
+	})
+}
+
+// ContentTypeValidationMiddleware validates Content-Type header for mutating requests.
+func ContentTypeValidationMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !isMutatingRequest(r) {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		if !isValidJSONContentType(r) {
+			writeUnsupportedMediaTypeError(w, r)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+// isMutatingRequest checks if the request is a mutating HTTP method
+func isMutatingRequest(r *http.Request) bool {
+	switch r.Method {
+	case http.MethodPost, http.MethodPut, http.MethodPatch:
+		return true
+	default:
+		return false
+	}
+}
+
+// isValidJSONContentType checks if the Content-Type header indicates JSON
+func isValidJSONContentType(r *http.Request) bool {
+	contentType := r.Header.Get(constants.HeaderContentType)
+	return strings.HasPrefix(contentType, constants.ContentTypeJSONPrefix)
+}
+
+// writeUnsupportedMediaTypeError writes a 415 error response
+func writeUnsupportedMediaTypeError(w http.ResponseWriter, r *http.Request) {
+	logger.Ctx(r.Context()).Warnw(constants.LogMsgInvalidContentType,
+		constants.LogKeyMethod, r.Method,
+		constants.LogKeyPath, r.URL.Path,
+		constants.HeaderContentType, r.Header.Get(constants.HeaderContentType),
+	)
+
+	w.Header().Set(constants.HeaderContentType, constants.ContentTypeJSON)
+	w.WriteHeader(constants.HTTPStatusUnsupportedMediaType)
+	w.Write([]byte(buildUnsupportedMediaTypeResponse()))
+}
+
+// buildUnsupportedMediaTypeResponse builds the error response JSON
+func buildUnsupportedMediaTypeResponse() string {
+	return constants.JSONErrorPrefix + constants.ErrMsgUnsupportedMediaType +
+		constants.JSONCodePrefix + constants.ErrCodeUnsupportedMedia +
+		constants.JSONSuffix
 }

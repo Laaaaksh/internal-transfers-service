@@ -90,7 +90,7 @@ func (h *HTTPHandler) writeErrorWithContext(w http.ResponseWriter, r *http.Reque
 		requestID = id
 	}
 
-	response := entities.ErrorResponse{
+	response := apperror.ErrorResponse{
 		Error:     err.PublicMessage(),
 		Code:      err.Code().String(),
 		RequestID: requestID,

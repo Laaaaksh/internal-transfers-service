@@ -17,12 +17,13 @@ import (
 
 // Domain errors
 var (
-	ErrInsufficientBalance = errors.New(entities.ErrMsgInsufficientBalance)
-	ErrSameAccountTransfer = errors.New(entities.ErrMsgSameAccountTransfer)
-	ErrInvalidAmount       = errors.New(entities.ErrMsgInvalidAmount)
-	ErrInvalidDecimalAmt   = errors.New(entities.ErrMsgInvalidDecimalAmt)
-	ErrSourceNotFound      = errors.New(entities.ErrMsgSourceNotFound)
-	ErrDestNotFound        = errors.New(entities.ErrMsgDestNotFound)
+	ErrInsufficientBalance  = errors.New(entities.ErrMsgInsufficientBalance)
+	ErrSameAccountTransfer  = errors.New(entities.ErrMsgSameAccountTransfer)
+	ErrInvalidAmount        = errors.New(entities.ErrMsgInvalidAmount)
+	ErrInvalidDecimalAmt    = errors.New(entities.ErrMsgInvalidDecimalAmt)
+	ErrSourceNotFound       = errors.New(entities.ErrMsgSourceNotFound)
+	ErrDestNotFound         = errors.New(entities.ErrMsgDestNotFound)
+	ErrTooManyDecimalPlaces = errors.New(entities.ErrMsgTooManyDecimalPlaces)
 )
 
 // ICore defines the interface for transaction business logic
@@ -122,6 +123,11 @@ func (c *Core) validateTransferRequest(req *entities.TransferRequest) (decimal.D
 	if amount.LessThanOrEqual(decimal.Zero) {
 		return decimal.Zero, apperror.NewWithMessage(apperror.CodeBadRequest, ErrInvalidAmount, apperror.MsgInvalidAmount).
 			WithField(apperror.FieldAmount, req.Amount)
+	}
+
+	// Validate decimal precision (max 8 places to match DB schema)
+	if appErr := validateDecimalPrecision(amount); appErr != nil {
+		return decimal.Zero, appErr
 	}
 
 	return amount, nil
@@ -294,4 +300,19 @@ func (c *Core) handleAccountError(err error, accountID int64, sourceAccountID in
 		return appErr
 	}
 	return apperror.New(apperror.CodeInternalError, err)
+}
+
+// validateDecimalPrecision checks if the value exceeds the maximum allowed decimal places.
+// The database uses DECIMAL(19,8) so we limit to 8 decimal places.
+func validateDecimalPrecision(value decimal.Decimal) apperror.IError {
+	exp := value.Exponent()
+	if exp >= -constants.MaxDecimalPlaces {
+		return nil
+	}
+
+	actualPlaces := -exp
+	return apperror.NewWithMessage(apperror.CodeBadRequest, ErrTooManyDecimalPlaces, apperror.MsgTooManyDecimalPlaces).
+		WithField(apperror.FieldAmount, value.String()).
+		WithField(apperror.FieldDecimalPlaces, actualPlaces).
+		WithField(apperror.FieldMaxAllowed, constants.MaxDecimalPlaces)
 }

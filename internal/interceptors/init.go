@@ -74,26 +74,45 @@ func ApplyMiddleware(handler http.Handler, middlewares ...Middleware) http.Handl
 }
 
 // GetChiMiddleware returns middleware compatible with chi.Router.Use()
+// This version does not include idempotency support.
 func GetChiMiddleware() []func(http.Handler) http.Handler {
 	return []func(http.Handler) http.Handler{
 		middleware.RequestID,
 		middleware.RealIP,
 		RecoveryMiddleware,
 		RequestIDMiddleware,
+		SecurityHeadersMiddleware,
+		MaxBytesMiddleware,
+		ContentTypeValidationMiddleware,
+		TimeoutMiddleware(DefaultRequestTimeout),
 		MetricsMiddleware,
 		RequestLoggerMiddleware,
 	}
 }
 
-// GetChiMiddlewareWithIdempotency returns middleware with idempotency support.
-// The idempotency middleware is placed after logging but before the handler
-// so that idempotent requests are properly logged.
+// GetChiMiddlewareWithIdempotency returns the production-ready middleware chain.
+// Middleware order is carefully designed for security and proper request handling:
+// 1. RequestID - Generate/propagate request ID first for tracing
+// 2. RealIP - Extract real client IP from proxy headers
+// 3. RecoveryMiddleware - Panic recovery (must be early to catch all panics)
+// 4. RequestIDMiddleware - Add request ID to response headers
+// 5. SecurityHeadersMiddleware - Add security headers early
+// 6. MaxBytesMiddleware - Limit body size before parsing (DoS protection)
+// 7. ContentTypeValidationMiddleware - Validate content-type before parsing
+// 8. TimeoutMiddleware - Request timeout protection
+// 9. MetricsMiddleware - Record metrics (after timeout to measure actual time)
+// 10. RequestLoggerMiddleware - Log requests (captures response details)
+// 11. IdempotencyMiddleware - Handle idempotent requests last
 func GetChiMiddlewareWithIdempotency(idempotencyRepo idempotency.IRepository) []func(http.Handler) http.Handler {
 	return []func(http.Handler) http.Handler{
 		middleware.RequestID,
 		middleware.RealIP,
 		RecoveryMiddleware,
 		RequestIDMiddleware,
+		SecurityHeadersMiddleware,
+		MaxBytesMiddleware,
+		ContentTypeValidationMiddleware,
+		TimeoutMiddleware(DefaultRequestTimeout),
 		MetricsMiddleware,
 		RequestLoggerMiddleware,
 		IdempotencyMiddleware(idempotencyRepo),

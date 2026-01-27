@@ -28,7 +28,7 @@ var (
 type RepositoryTestSuite struct {
 	suite.Suite
 	ctrl     *gomock.Controller
-	mockPool *dbmock.MockPool
+	mockPool *dbmock.MockIPool
 	mockTx   *dbmock.MockTx
 	repo     transaction.IRepository
 	ctx      context.Context
@@ -40,7 +40,7 @@ func TestRepositorySuite(t *testing.T) {
 
 func (s *RepositoryTestSuite) SetupTest() {
 	s.ctrl = gomock.NewController(s.T())
-	s.mockPool = dbmock.NewMockPool(s.ctrl)
+	s.mockPool = dbmock.NewMockIPool(s.ctrl)
 	s.mockTx = dbmock.NewMockTx(s.ctrl)
 	s.ctx = context.Background()
 	s.repo = transaction.NewRepository(s.mockPool)
@@ -221,7 +221,7 @@ func (s *RepositoryTestSuite) TestCreateTransactionWhenTransactionAbortedReturns
 
 func (s *RepositoryTestSuite) TestBeginTxSucceeds() {
 	s.mockPool.EXPECT().
-		Begin(s.ctx).
+		BeginTx(s.ctx, gomock.Any()).
 		Return(s.mockTx, nil).
 		Times(1)
 
@@ -234,7 +234,7 @@ func (s *RepositoryTestSuite) TestBeginTxSucceeds() {
 
 func (s *RepositoryTestSuite) TestBeginTxWhenPoolFailsReturnsError() {
 	s.mockPool.EXPECT().
-		Begin(s.ctx).
+		BeginTx(s.ctx, gomock.Any()).
 		Return(nil, errRepoTxTooManyConns).
 		Times(1)
 
@@ -246,7 +246,7 @@ func (s *RepositoryTestSuite) TestBeginTxWhenPoolFailsReturnsError() {
 
 func (s *RepositoryTestSuite) TestBeginTxWhenConnectionTimeoutReturnsError() {
 	s.mockPool.EXPECT().
-		Begin(s.ctx).
+		BeginTx(s.ctx, gomock.Any()).
 		Return(nil, errRepoTxConnTimeout).
 		Times(1)
 

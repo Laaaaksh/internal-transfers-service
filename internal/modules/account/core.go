@@ -15,11 +15,12 @@ import (
 
 // Domain errors
 var (
-	ErrAccountNotFound  = errors.New(entities.ErrMsgAccountNotFound)
-	ErrAccountExists    = errors.New(entities.ErrMsgAccountExists)
-	ErrInvalidAccountID = errors.New(entities.ErrMsgInvalidAccountID)
-	ErrInvalidBalance   = errors.New(entities.ErrMsgInvalidBalance)
-	ErrInvalidDecimal   = errors.New(entities.ErrMsgInvalidDecimal)
+	ErrAccountNotFound      = errors.New(entities.ErrMsgAccountNotFound)
+	ErrAccountExists        = errors.New(entities.ErrMsgAccountExists)
+	ErrInvalidAccountID     = errors.New(entities.ErrMsgInvalidAccountID)
+	ErrInvalidBalance       = errors.New(entities.ErrMsgInvalidBalance)
+	ErrInvalidDecimal       = errors.New(entities.ErrMsgInvalidDecimal)
+	ErrTooManyDecimalPlaces = errors.New(entities.ErrMsgTooManyDecimalPlaces)
 )
 
 // ICore defines the interface for account business logic
@@ -87,6 +88,11 @@ func (c *Core) Create(ctx context.Context, req *entities.CreateAccountRequest) a
 		)
 		return apperror.NewWithMessage(apperror.CodeBadRequest, ErrInvalidBalance, apperror.MsgNegativeBalance).
 			WithField(constants.LogFieldInitialBalance, req.InitialBalance)
+	}
+
+	// Validate decimal precision (max 8 places to match DB schema)
+	if appErr := validateDecimalPrecision(ctx, balance, constants.LogFieldInitialBalance); appErr != nil {
+		return appErr
 	}
 
 	// Check if account already exists
@@ -163,4 +169,25 @@ func (c *Core) GetByID(ctx context.Context, accountID int64) (*entities.AccountR
 		AccountID: account.AccountID,
 		Balance:   account.Balance.String(),
 	}, nil
+}
+
+// validateDecimalPrecision checks if the value exceeds the maximum allowed decimal places.
+// The database uses DECIMAL(19,8) so we limit to 8 decimal places.
+func validateDecimalPrecision(ctx context.Context, value decimal.Decimal, fieldName string) apperror.IError {
+	exp := value.Exponent()
+	if exp >= -constants.MaxDecimalPlaces {
+		return nil
+	}
+
+	actualPlaces := -exp
+	logger.Ctx(ctx).Debugw(constants.LogMsgTooManyDecimalPlaces,
+		fieldName, value.String(),
+		apperror.FieldDecimalPlaces, actualPlaces,
+		apperror.FieldMaxAllowed, constants.MaxDecimalPlaces,
+	)
+
+	return apperror.NewWithMessage(apperror.CodeBadRequest, ErrTooManyDecimalPlaces, apperror.MsgTooManyDecimalPlaces).
+		WithField(fieldName, value.String()).
+		WithField(apperror.FieldDecimalPlaces, actualPlaces).
+		WithField(apperror.FieldMaxAllowed, constants.MaxDecimalPlaces)
 }
