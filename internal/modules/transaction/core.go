@@ -209,11 +209,11 @@ func (c *Core) handleAccountError(err error, accountID int64, sourceAccountID in
 	if errors.As(err, &appErr) {
 		if appErr.Code() == apperror.CodeNotFound {
 			if accountID == sourceAccountID {
-				return apperror.NewWithMessage(apperror.CodeNotFound, ErrSourceNotFound, "Source account not found").
-					WithField("source_account_id", accountID)
+				return apperror.NewWithMessage(apperror.CodeNotFound, ErrSourceNotFound, apperror.MsgSourceNotFound).
+					WithField(apperror.FieldSourceAccount, accountID)
 			}
-			return apperror.NewWithMessage(apperror.CodeNotFound, ErrDestNotFound, "Destination account not found").
-				WithField("destination_account_id", accountID)
+			return apperror.NewWithMessage(apperror.CodeNotFound, ErrDestNotFound, apperror.MsgDestNotFound).
+				WithField(apperror.FieldDestAccount, accountID)
 		}
 		return appErr
 	}

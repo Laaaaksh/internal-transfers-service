@@ -9,8 +9,8 @@ import (
 
 	"github.com/internal-transfers-service/internal/logger"
 	"github.com/internal-transfers-service/pkg/apperror"
+	"github.com/internal-transfers-service/pkg/database"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 )
 
@@ -33,14 +33,14 @@ type IRepository interface {
 
 // Repository implements IRepository
 type Repository struct {
-	pool *pgxpool.Pool
+	pool database.IPool
 }
 
 // Compile-time interface check
 var _ IRepository = (*Repository)(nil)
 
 // NewRepository creates a new account repository
-func NewRepository(pool *pgxpool.Pool) *Repository {
+func NewRepository(pool database.IPool) *Repository {
 	return &Repository{pool: pool}
 }
 

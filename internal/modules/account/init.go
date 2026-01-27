@@ -3,6 +3,7 @@ package account
 import (
 	"context"
 
+	"github.com/internal-transfers-service/pkg/database"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -12,7 +13,8 @@ var AccModule IModule
 // NewModule initializes the account module
 var NewModule = func(ctx context.Context, pool *pgxpool.Pool) IModule {
 	if AccModule == nil {
-		repo := NewRepository(pool)
+		poolWrapper := database.NewPoolWrapper(pool)
+		repo := NewRepository(poolWrapper)
 		core := NewCore(ctx, repo)
 		handler := NewHTTPHandler(core)
 

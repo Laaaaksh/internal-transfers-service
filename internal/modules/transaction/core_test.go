@@ -25,6 +25,14 @@ const (
 	testLargeAmount          = "1000.00"
 )
 
+// Test error constants - used for simulating database errors in tests
+var (
+	errDatabaseConnectionFailed = errors.New("database connection failed")
+	errUpdateFailed             = errors.New("update failed")
+	errInsertFailed             = errors.New("insert failed")
+	errCommitFailed             = errors.New("commit failed")
+)
+
 // CoreTestSuite contains tests for transaction Core
 type CoreTestSuite struct {
 	suite.Suite
@@ -91,32 +99,32 @@ func (s *CoreTestSuite) TestTransferWithValidDataSucceeds() {
 
 	// Lock accounts in order (source=100 < dest=200, so source first)
 	s.mockAccountRepo.EXPECT().
-		GetForUpdate(s.ctx, gomock.Any(), testSourceAccountID).
+		GetForUpdate(s.ctx, s.mockPgxTx, testSourceAccountID).
 		Return(sourceAccount, nil).
 		Times(1)
 
 	s.mockAccountRepo.EXPECT().
-		GetForUpdate(s.ctx, gomock.Any(), testDestinationAccountID).
+		GetForUpdate(s.ctx, s.mockPgxTx, testDestinationAccountID).
 		Return(destAccount, nil).
 		Times(1)
 
 	// Update source balance (100 - 50 = 50)
 	expectedSourceBalance, _ := decimal.NewFromString("50.00")
 	s.mockAccountRepo.EXPECT().
-		UpdateBalance(s.ctx, gomock.Any(), testSourceAccountID, expectedSourceBalance).
+		UpdateBalance(s.ctx, s.mockPgxTx, testSourceAccountID, expectedSourceBalance).
 		Return(nil).
 		Times(1)
 
 	// Update destination balance (50 + 50 = 100)
 	expectedDestBalance, _ := decimal.NewFromString("100.00")
 	s.mockAccountRepo.EXPECT().
-		UpdateBalance(s.ctx, gomock.Any(), testDestinationAccountID, expectedDestBalance).
+		UpdateBalance(s.ctx, s.mockPgxTx, testDestinationAccountID, expectedDestBalance).
 		Return(nil).
 		Times(1)
 
 	// Create transaction record
 	s.mockTxRepo.EXPECT().
-		Create(s.ctx, gomock.Any(), gomock.Any()).
+		Create(s.ctx, s.mockPgxTx, gomock.Any()).
 		DoAndReturn(func(_ context.Context, _ any, txRecord *transaction.Transaction) error {
 			s.Equal(testSourceAccountID, txRecord.SourceAccountID)
 			s.Equal(testDestinationAccountID, txRecord.DestinationAccountID)
@@ -162,28 +170,28 @@ func (s *CoreTestSuite) TestTransferWithReversedAccountOrderLocksCorrectly() {
 
 	// Lock in order: 100 first, then 200
 	s.mockAccountRepo.EXPECT().
-		GetForUpdate(s.ctx, gomock.Any(), testSourceAccountID). // 100 first
+		GetForUpdate(s.ctx, s.mockPgxTx, testSourceAccountID). // 100 first
 		Return(destAccount, nil).
 		Times(1)
 
 	s.mockAccountRepo.EXPECT().
-		GetForUpdate(s.ctx, gomock.Any(), testDestinationAccountID). // 200 second
+		GetForUpdate(s.ctx, s.mockPgxTx, testDestinationAccountID). // 200 second
 		Return(sourceAccount, nil).
 		Times(1)
 
 	// Update balances
 	s.mockAccountRepo.EXPECT().
-		UpdateBalance(s.ctx, gomock.Any(), testDestinationAccountID, gomock.Any()).
+		UpdateBalance(s.ctx, s.mockPgxTx, testDestinationAccountID, gomock.Any()).
 		Return(nil).
 		Times(1)
 
 	s.mockAccountRepo.EXPECT().
-		UpdateBalance(s.ctx, gomock.Any(), testSourceAccountID, gomock.Any()).
+		UpdateBalance(s.ctx, s.mockPgxTx, testSourceAccountID, gomock.Any()).
 		Return(nil).
 		Times(1)
 
 	s.mockTxRepo.EXPECT().
-		Create(s.ctx, gomock.Any(), gomock.Any()).
+		Create(s.ctx, s.mockPgxTx, gomock.Any()).
 		Return(nil).
 		Times(1)
 
@@ -213,17 +221,17 @@ func (s *CoreTestSuite) TestTransferWithHighPrecisionAmountSucceeds() {
 		Times(1)
 
 	s.mockAccountRepo.EXPECT().
-		GetForUpdate(s.ctx, gomock.Any(), testSourceAccountID).
+		GetForUpdate(s.ctx, s.mockPgxTx, testSourceAccountID).
 		Return(sourceAccount, nil).
 		Times(1)
 
 	s.mockAccountRepo.EXPECT().
-		GetForUpdate(s.ctx, gomock.Any(), testDestinationAccountID).
+		GetForUpdate(s.ctx, s.mockPgxTx, testDestinationAccountID).
 		Return(destAccount, nil).
 		Times(1)
 
 	s.mockAccountRepo.EXPECT().
-		UpdateBalance(s.ctx, gomock.Any(), testSourceAccountID, gomock.Any()).
+		UpdateBalance(s.ctx, s.mockPgxTx, testSourceAccountID, gomock.Any()).
 		DoAndReturn(func(_ context.Context, _ any, _ int64, newBalance decimal.Decimal) error {
 			expected, _ := decimal.NewFromString("376.54321099")
 			s.True(newBalance.Equal(expected), "Expected %s but got %s", expected.String(), newBalance.String())
@@ -232,7 +240,7 @@ func (s *CoreTestSuite) TestTransferWithHighPrecisionAmountSucceeds() {
 		Times(1)
 
 	s.mockAccountRepo.EXPECT().
-		UpdateBalance(s.ctx, gomock.Any(), testDestinationAccountID, gomock.Any()).
+		UpdateBalance(s.ctx, s.mockPgxTx, testDestinationAccountID, gomock.Any()).
 		DoAndReturn(func(_ context.Context, _ any, _ int64, newBalance decimal.Decimal) error {
 			expected, _ := decimal.NewFromString("223.45678901")
 			s.True(newBalance.Equal(expected), "Expected %s but got %s", expected.String(), newBalance.String())
@@ -241,7 +249,7 @@ func (s *CoreTestSuite) TestTransferWithHighPrecisionAmountSucceeds() {
 		Times(1)
 
 	s.mockTxRepo.EXPECT().
-		Create(s.ctx, gomock.Any(), gomock.Any()).
+		Create(s.ctx, s.mockPgxTx, gomock.Any()).
 		Return(nil).
 		Times(1)
 
@@ -320,7 +328,7 @@ func (s *CoreTestSuite) TestTransferWhenBeginTxFailsReturnsError() {
 
 	s.mockTxRepo.EXPECT().
 		BeginTx(s.ctx).
-		Return(nil, errors.New("database connection failed")).
+		Return(nil, errDatabaseConnectionFailed).
 		Times(1)
 
 	response, err := s.core.Transfer(s.ctx, req)
@@ -338,7 +346,7 @@ func (s *CoreTestSuite) TestTransferWhenSourceAccountNotFoundFails() {
 		Amount:               testValidAmount,
 	}
 
-	notFoundErr := apperror.New(apperror.CodeNotFound, errors.New("account not found"))
+	notFoundErr := apperror.New(apperror.CodeNotFound, account.ErrAccountNotFound)
 
 	s.mockTxRepo.EXPECT().
 		BeginTx(s.ctx).
@@ -347,7 +355,7 @@ func (s *CoreTestSuite) TestTransferWhenSourceAccountNotFoundFails() {
 
 	// Source ID (100) < Dest ID (200), so source is locked first
 	s.mockAccountRepo.EXPECT().
-		GetForUpdate(s.ctx, gomock.Any(), testSourceAccountID).
+		GetForUpdate(s.ctx, s.mockPgxTx, testSourceAccountID).
 		Return(nil, notFoundErr).
 		Times(1)
 
@@ -370,7 +378,7 @@ func (s *CoreTestSuite) TestTransferWhenDestinationAccountNotFoundFails() {
 	}
 
 	sourceAccount := s.createSourceAccount("100.00")
-	notFoundErr := apperror.New(apperror.CodeNotFound, errors.New("account not found"))
+	notFoundErr := apperror.New(apperror.CodeNotFound, account.ErrAccountNotFound)
 
 	s.mockTxRepo.EXPECT().
 		BeginTx(s.ctx).
@@ -378,12 +386,12 @@ func (s *CoreTestSuite) TestTransferWhenDestinationAccountNotFoundFails() {
 		Times(1)
 
 	s.mockAccountRepo.EXPECT().
-		GetForUpdate(s.ctx, gomock.Any(), testSourceAccountID).
+		GetForUpdate(s.ctx, s.mockPgxTx, testSourceAccountID).
 		Return(sourceAccount, nil).
 		Times(1)
 
 	s.mockAccountRepo.EXPECT().
-		GetForUpdate(s.ctx, gomock.Any(), testDestinationAccountID).
+		GetForUpdate(s.ctx, s.mockPgxTx, testDestinationAccountID).
 		Return(nil, notFoundErr).
 		Times(1)
 
@@ -416,12 +424,12 @@ func (s *CoreTestSuite) TestTransferWithInsufficientBalanceFails() {
 		Times(1)
 
 	s.mockAccountRepo.EXPECT().
-		GetForUpdate(s.ctx, gomock.Any(), testSourceAccountID).
+		GetForUpdate(s.ctx, s.mockPgxTx, testSourceAccountID).
 		Return(sourceAccount, nil).
 		Times(1)
 
 	s.mockAccountRepo.EXPECT().
-		GetForUpdate(s.ctx, gomock.Any(), testDestinationAccountID).
+		GetForUpdate(s.ctx, s.mockPgxTx, testDestinationAccountID).
 		Return(destAccount, nil).
 		Times(1)
 
@@ -452,18 +460,18 @@ func (s *CoreTestSuite) TestTransferWithExactBalanceSucceeds() {
 		Times(1)
 
 	s.mockAccountRepo.EXPECT().
-		GetForUpdate(s.ctx, gomock.Any(), testSourceAccountID).
+		GetForUpdate(s.ctx, s.mockPgxTx, testSourceAccountID).
 		Return(sourceAccount, nil).
 		Times(1)
 
 	s.mockAccountRepo.EXPECT().
-		GetForUpdate(s.ctx, gomock.Any(), testDestinationAccountID).
+		GetForUpdate(s.ctx, s.mockPgxTx, testDestinationAccountID).
 		Return(destAccount, nil).
 		Times(1)
 
 	// Source balance should be 0
 	s.mockAccountRepo.EXPECT().
-		UpdateBalance(s.ctx, gomock.Any(), testSourceAccountID, gomock.Any()).
+		UpdateBalance(s.ctx, s.mockPgxTx, testSourceAccountID, gomock.Any()).
 		DoAndReturn(func(_ context.Context, _ any, _ int64, newBalance decimal.Decimal) error {
 			s.True(newBalance.IsZero(), "Expected zero balance but got %s", newBalance.String())
 			return nil
@@ -472,7 +480,7 @@ func (s *CoreTestSuite) TestTransferWithExactBalanceSucceeds() {
 
 	// Dest balance should be 150
 	s.mockAccountRepo.EXPECT().
-		UpdateBalance(s.ctx, gomock.Any(), testDestinationAccountID, gomock.Any()).
+		UpdateBalance(s.ctx, s.mockPgxTx, testDestinationAccountID, gomock.Any()).
 		DoAndReturn(func(_ context.Context, _ any, _ int64, newBalance decimal.Decimal) error {
 			expected, _ := decimal.NewFromString("150.00")
 			s.True(newBalance.Equal(expected), "Expected %s but got %s", expected.String(), newBalance.String())
@@ -481,7 +489,7 @@ func (s *CoreTestSuite) TestTransferWithExactBalanceSucceeds() {
 		Times(1)
 
 	s.mockTxRepo.EXPECT().
-		Create(s.ctx, gomock.Any(), gomock.Any()).
+		Create(s.ctx, s.mockPgxTx, gomock.Any()).
 		Return(nil).
 		Times(1)
 
@@ -513,18 +521,18 @@ func (s *CoreTestSuite) TestTransferWhenUpdateSourceBalanceFailsReturnsError() {
 		Times(1)
 
 	s.mockAccountRepo.EXPECT().
-		GetForUpdate(s.ctx, gomock.Any(), testSourceAccountID).
+		GetForUpdate(s.ctx, s.mockPgxTx, testSourceAccountID).
 		Return(sourceAccount, nil).
 		Times(1)
 
 	s.mockAccountRepo.EXPECT().
-		GetForUpdate(s.ctx, gomock.Any(), testDestinationAccountID).
+		GetForUpdate(s.ctx, s.mockPgxTx, testDestinationAccountID).
 		Return(destAccount, nil).
 		Times(1)
 
 	s.mockAccountRepo.EXPECT().
-		UpdateBalance(s.ctx, gomock.Any(), testSourceAccountID, gomock.Any()).
-		Return(errors.New("update failed")).
+		UpdateBalance(s.ctx, s.mockPgxTx, testSourceAccountID, gomock.Any()).
+		Return(errUpdateFailed).
 		Times(1)
 
 	s.mockPgxTx.EXPECT().
@@ -554,23 +562,23 @@ func (s *CoreTestSuite) TestTransferWhenUpdateDestBalanceFailsReturnsError() {
 		Times(1)
 
 	s.mockAccountRepo.EXPECT().
-		GetForUpdate(s.ctx, gomock.Any(), testSourceAccountID).
+		GetForUpdate(s.ctx, s.mockPgxTx, testSourceAccountID).
 		Return(sourceAccount, nil).
 		Times(1)
 
 	s.mockAccountRepo.EXPECT().
-		GetForUpdate(s.ctx, gomock.Any(), testDestinationAccountID).
+		GetForUpdate(s.ctx, s.mockPgxTx, testDestinationAccountID).
 		Return(destAccount, nil).
 		Times(1)
 
 	s.mockAccountRepo.EXPECT().
-		UpdateBalance(s.ctx, gomock.Any(), testSourceAccountID, gomock.Any()).
+		UpdateBalance(s.ctx, s.mockPgxTx, testSourceAccountID, gomock.Any()).
 		Return(nil).
 		Times(1)
 
 	s.mockAccountRepo.EXPECT().
-		UpdateBalance(s.ctx, gomock.Any(), testDestinationAccountID, gomock.Any()).
-		Return(errors.New("update failed")).
+		UpdateBalance(s.ctx, s.mockPgxTx, testDestinationAccountID, gomock.Any()).
+		Return(errUpdateFailed).
 		Times(1)
 
 	s.mockPgxTx.EXPECT().
@@ -602,28 +610,28 @@ func (s *CoreTestSuite) TestTransferWhenCreateTransactionRecordFailsReturnsError
 		Times(1)
 
 	s.mockAccountRepo.EXPECT().
-		GetForUpdate(s.ctx, gomock.Any(), testSourceAccountID).
+		GetForUpdate(s.ctx, s.mockPgxTx, testSourceAccountID).
 		Return(sourceAccount, nil).
 		Times(1)
 
 	s.mockAccountRepo.EXPECT().
-		GetForUpdate(s.ctx, gomock.Any(), testDestinationAccountID).
+		GetForUpdate(s.ctx, s.mockPgxTx, testDestinationAccountID).
 		Return(destAccount, nil).
 		Times(1)
 
 	s.mockAccountRepo.EXPECT().
-		UpdateBalance(s.ctx, gomock.Any(), testSourceAccountID, gomock.Any()).
+		UpdateBalance(s.ctx, s.mockPgxTx, testSourceAccountID, gomock.Any()).
 		Return(nil).
 		Times(1)
 
 	s.mockAccountRepo.EXPECT().
-		UpdateBalance(s.ctx, gomock.Any(), testDestinationAccountID, gomock.Any()).
+		UpdateBalance(s.ctx, s.mockPgxTx, testDestinationAccountID, gomock.Any()).
 		Return(nil).
 		Times(1)
 
 	s.mockTxRepo.EXPECT().
-		Create(s.ctx, gomock.Any(), gomock.Any()).
-		Return(errors.New("insert failed")).
+		Create(s.ctx, s.mockPgxTx, gomock.Any()).
+		Return(errInsertFailed).
 		Times(1)
 
 	s.mockPgxTx.EXPECT().
@@ -655,33 +663,33 @@ func (s *CoreTestSuite) TestTransferWhenCommitFailsReturnsError() {
 		Times(1)
 
 	s.mockAccountRepo.EXPECT().
-		GetForUpdate(s.ctx, gomock.Any(), testSourceAccountID).
+		GetForUpdate(s.ctx, s.mockPgxTx, testSourceAccountID).
 		Return(sourceAccount, nil).
 		Times(1)
 
 	s.mockAccountRepo.EXPECT().
-		GetForUpdate(s.ctx, gomock.Any(), testDestinationAccountID).
+		GetForUpdate(s.ctx, s.mockPgxTx, testDestinationAccountID).
 		Return(destAccount, nil).
 		Times(1)
 
 	s.mockAccountRepo.EXPECT().
-		UpdateBalance(s.ctx, gomock.Any(), testSourceAccountID, gomock.Any()).
+		UpdateBalance(s.ctx, s.mockPgxTx, testSourceAccountID, gomock.Any()).
 		Return(nil).
 		Times(1)
 
 	s.mockAccountRepo.EXPECT().
-		UpdateBalance(s.ctx, gomock.Any(), testDestinationAccountID, gomock.Any()).
+		UpdateBalance(s.ctx, s.mockPgxTx, testDestinationAccountID, gomock.Any()).
 		Return(nil).
 		Times(1)
 
 	s.mockTxRepo.EXPECT().
-		Create(s.ctx, gomock.Any(), gomock.Any()).
+		Create(s.ctx, s.mockPgxTx, gomock.Any()).
 		Return(nil).
 		Times(1)
 
 	s.mockPgxTx.EXPECT().
 		Commit(s.ctx).
-		Return(errors.New("commit failed")).
+		Return(errCommitFailed).
 		Times(1)
 
 	s.mockPgxTx.EXPECT().

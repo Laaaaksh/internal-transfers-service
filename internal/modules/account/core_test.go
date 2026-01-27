@@ -14,6 +14,13 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
+// Test error constants - used for simulating database errors in tests
+var (
+	errDatabaseConnectionFailed = errors.New("database connection failed")
+	errInsertFailed             = errors.New("insert failed")
+	errDatabaseError            = errors.New("database error")
+)
+
 // CoreTestSuite contains tests for account Core
 type CoreTestSuite struct {
 	suite.Suite
@@ -182,7 +189,7 @@ func (s *CoreTestSuite) TestCreateAccountWhenExistsCheckFailsReturnsError() {
 
 	s.mockRepo.EXPECT().
 		Exists(s.ctx, int64(123)).
-		Return(false, errors.New("database connection failed")).
+		Return(false, errDatabaseConnectionFailed).
 		Times(1)
 
 	err := s.core.Create(s.ctx, req)
@@ -203,7 +210,7 @@ func (s *CoreTestSuite) TestCreateAccountWhenCreateFailsReturnsError() {
 
 	s.mockRepo.EXPECT().
 		Create(s.ctx, gomock.Any()).
-		Return(errors.New("insert failed")).
+		Return(errInsertFailed).
 		Times(1)
 
 	err := s.core.Create(s.ctx, req)
@@ -267,7 +274,7 @@ func (s *CoreTestSuite) TestGetByIDWithNegativeAccountIDFails() {
 // Test Get Account By ID - Not Found Error
 
 func (s *CoreTestSuite) TestGetByIDWhenAccountNotFoundReturnsNotFoundError() {
-	notFoundErr := apperror.New(apperror.CodeNotFound, errors.New("account not found"))
+	notFoundErr := apperror.New(apperror.CodeNotFound, account.ErrAccountNotFound)
 
 	s.mockRepo.EXPECT().
 		GetByID(s.ctx, int64(999)).
@@ -285,7 +292,7 @@ func (s *CoreTestSuite) TestGetByIDWhenAccountNotFoundReturnsNotFoundError() {
 func (s *CoreTestSuite) TestGetByIDWhenRepoFailsReturnsInternalError() {
 	s.mockRepo.EXPECT().
 		GetByID(s.ctx, int64(123)).
-		Return(nil, errors.New("database error")).
+		Return(nil, errDatabaseError).
 		Times(1)
 
 	response, err := s.core.GetByID(s.ctx, 123)

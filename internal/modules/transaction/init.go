@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/internal-transfers-service/internal/modules/account"
+	"github.com/internal-transfers-service/pkg/database"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -13,7 +14,8 @@ var TxModule IModule
 // NewModule initializes the transaction module
 var NewModule = func(ctx context.Context, pool *pgxpool.Pool, accountRepo account.IRepository) IModule {
 	if TxModule == nil {
-		repo := NewRepository(pool)
+		poolWrapper := database.NewPoolWrapper(pool)
+		repo := NewRepository(poolWrapper)
 		core := NewCore(ctx, repo, accountRepo)
 		handler := NewHTTPHandler(core)
 

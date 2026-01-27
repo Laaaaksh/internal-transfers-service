@@ -23,6 +23,8 @@ const (
 	MsgInternalError       = "An internal error occurred. Please try again later."
 	MsgInvalidRequest      = "The request is invalid."
 	MsgAccountNotFound     = "The specified account was not found."
+	MsgSourceNotFound      = "Source account not found."
+	MsgDestNotFound        = "Destination account not found."
 	MsgInsufficientBalance = "Insufficient balance for this transaction."
 	MsgDuplicateAccount    = "An account with this ID already exists."
 	MsgInvalidAmount       = "The amount must be a positive number."
