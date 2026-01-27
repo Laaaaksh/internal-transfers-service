@@ -2,6 +2,8 @@
 package database
 
 //go:generate mockgen -source=pool.go -destination=mock/mock_pool.go -package=mock
+//go:generate mockgen -destination=mock/mock_row.go -package=mock github.com/jackc/pgx/v5 Row
+//go:generate mockgen -destination=mock/mock_tx.go -package=mock github.com/jackc/pgx/v5 Tx
 
 import (
 	"context"
