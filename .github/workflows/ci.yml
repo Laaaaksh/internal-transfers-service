@@ -12,7 +12,8 @@ on:
 
 env:
   GO_VERSION: '1.24'
-  GOLANGCI_LINT_VERSION: v1.62.2
+  # golangci-lint v1.64+ is required for Go 1.24 compatibility
+  GOLANGCI_LINT_VERSION: v1.64.5
 
 jobs:
   lint:
