@@ -109,21 +109,54 @@ func GetChiMiddlewareWithIdempotency(idempotencyRepo idempotency.IRepository) []
 	return GetChiMiddlewareWithConfig(idempotencyRepo, config.RateLimitConfig{})
 }
 
+// MiddlewareConfig holds all middleware configuration
+type MiddlewareConfig struct {
+	RateLimit   config.RateLimitConfig
+	Tracing     config.TracingConfig
+	Idempotency idempotency.IRepository
+}
+
 // GetChiMiddlewareWithConfig returns the production-ready middleware chain with full config.
 // Use this when rate limiting configuration is available.
 func GetChiMiddlewareWithConfig(idempotencyRepo idempotency.IRepository, rateLimitCfg config.RateLimitConfig) []func(http.Handler) http.Handler {
+	return GetChiMiddlewareWithFullConfig(MiddlewareConfig{
+		RateLimit:   rateLimitCfg,
+		Tracing:     config.TracingConfig{},
+		Idempotency: idempotencyRepo,
+	})
+}
+
+// GetChiMiddlewareWithFullConfig returns the production-ready middleware chain with all config.
+// Middleware order is carefully designed for security and proper request handling:
+// 1. RequestID - Generate/propagate request ID first for tracing
+// 2. RealIP - Extract real client IP from proxy headers
+// 3. TracingMiddleware - OpenTelemetry distributed tracing (early for full span coverage)
+// 4. TraceContextMiddleware - Add trace IDs to context for logging
+// 5. RecoveryMiddleware - Panic recovery (must be early to catch all panics)
+// 6. RequestIDMiddleware - Add request ID to response headers
+// 7. SecurityHeadersMiddleware - Add security headers early
+// 8. RateLimitMiddleware - Rate limiting early (before heavy processing)
+// 9. MaxBytesMiddleware - Limit body size before parsing (DoS protection)
+// 10. ContentTypeValidationMiddleware - Validate content-type before parsing
+// 11. TimeoutMiddleware - Request timeout protection
+// 12. MetricsMiddleware - Record metrics (after timeout to measure actual time)
+// 13. RequestLoggerMiddleware - Log requests (captures response details)
+// 14. IdempotencyMiddleware - Handle idempotent requests last
+func GetChiMiddlewareWithFullConfig(cfg MiddlewareConfig) []func(http.Handler) http.Handler {
 	return []func(http.Handler) http.Handler{
 		middleware.RequestID,
 		middleware.RealIP,
+		TracingMiddleware(cfg.Tracing),
+		TraceContextMiddleware,
 		RecoveryMiddleware,
 		RequestIDMiddleware,
 		SecurityHeadersMiddleware,
-		RateLimitMiddleware(rateLimitCfg),
+		RateLimitMiddleware(cfg.RateLimit),
 		MaxBytesMiddleware,
 		ContentTypeValidationMiddleware,
 		TimeoutMiddleware(DefaultRequestTimeout),
 		MetricsMiddleware,
 		RequestLoggerMiddleware,
-		IdempotencyMiddleware(idempotencyRepo),
+		IdempotencyMiddleware(cfg.Idempotency),
 	}
 }

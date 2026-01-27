@@ -45,3 +45,11 @@ cors_allow_origin = "${CORS_ALLOW_ORIGIN}"
 enabled = true
 requests_per_second = 100.0
 burst_size = 200
+
+[tracing]
+# Production tracing - configure via environment variables
+enabled = "${TRACING_ENABLED:-false}"
+endpoint = "${OTEL_EXPORTER_OTLP_ENDPOINT}"
+sample_rate = 0.1
+insecure = false
+batch_timeout = "5s"

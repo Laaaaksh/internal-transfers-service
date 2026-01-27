@@ -7,7 +7,8 @@ const (
 	ServiceName = "internal-transfers-service"
 
 	// API versioning
-	APIVersion = "v1"
+	APIVersion       = "v1"
+	APIVersionPrefix = "/v1"
 
 	// HTTP headers
 	HeaderRequestID      = "X-Request-ID"
@@ -366,4 +367,44 @@ const (
 // Rate limit log messages
 const (
 	LogMsgRateLimitExceeded = "Rate limit exceeded for request"
+)
+
+// Tracing constants
+const (
+	// Default tracing configuration values
+	DefaultTracingEndpoint     = "localhost:4317"
+	DefaultTracingSampleRate   = 1.0
+	DefaultTracingBatchTimeout = "5s"
+
+	// Tracing attribute keys
+	TracingAttrHTTPMethod     = "http.method"
+	TracingAttrHTTPRoute      = "http.route"
+	TracingAttrHTTPStatusCode = "http.status_code"
+	TracingAttrHTTPRequestID  = "http.request_id"
+	TracingAttrHTTPUserAgent  = "http.user_agent"
+	TracingAttrHTTPClientIP   = "http.client_ip"
+	TracingAttrDBSystem       = "db.system"
+	TracingAttrDBStatement    = "db.statement"
+	TracingAttrDBOperation    = "db.operation"
+
+	// Tracing span names
+	TracingSpanHTTPRequest = "http.request"
+	TracingSpanDBQuery     = "db.query"
+)
+
+// Tracing log messages
+const (
+	LogMsgTracerInitialized    = "OpenTelemetry tracer initialized"
+	LogMsgTracerInitFailed     = "Failed to initialize tracer"
+	LogMsgTracerShutdown       = "Tracer shutdown complete"
+	LogMsgTracerShutdownFailed = "Failed to shutdown tracer"
+	LogMsgTracerDisabled       = "Tracing is disabled"
+)
+
+// Tracing log field keys
+const (
+	LogFieldTraceID    = "trace_id"
+	LogFieldSpanID     = "span_id"
+	LogFieldEndpoint   = "endpoint"
+	LogFieldSampleRate = "sample_rate"
 )

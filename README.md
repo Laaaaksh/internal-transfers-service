@@ -8,9 +8,12 @@ A production-grade microservice for facilitating internal fund transfers between
 - **Fund Transfers** - Transfer funds between accounts with ACID guarantees
 - **Decimal Precision** - All monetary values use 8 decimal places for financial accuracy
 - **Idempotency Support** - Safe retries using X-Idempotency-Key header
+- **API Versioning** - All endpoints prefixed with `/v1` for future compatibility
+- **Distributed Tracing** - OpenTelemetry integration for request tracing
+- **Rate Limiting** - Token bucket rate limiting to prevent API abuse
 - **Health Checks** - Kubernetes-ready liveness and readiness probes
 - **Metrics** - Prometheus-compatible metrics endpoint
-- **Structured Logging** - JSON-formatted logs with request tracing
+- **Structured Logging** - JSON-formatted logs with trace/span IDs
 - **Graceful Shutdown** - Proper connection draining and cleanup
 
 ---
@@ -123,21 +126,21 @@ The service starts on:
 ### Test the API
 
 ```bash
-# Create accounts
-curl -X POST http://localhost:8080/accounts \
+# Create accounts (note: all API endpoints are prefixed with /v1)
+curl -X POST http://localhost:8080/v1/accounts \
   -H "Content-Type: application/json" \
   -d '{"account_id": 1, "initial_balance": "1000.00"}'
 
-curl -X POST http://localhost:8080/accounts \
+curl -X POST http://localhost:8080/v1/accounts \
   -H "Content-Type: application/json" \
   -d '{"account_id": 2, "initial_balance": "500.00"}'
 
 # Get account balance
-curl http://localhost:8080/accounts/1
+curl http://localhost:8080/v1/accounts/1
 # Response: {"account_id":1,"balance":"1000"}
 
 # Transfer funds (with idempotency key for safe retries)
-curl -X POST http://localhost:8080/transactions \
+curl -X POST http://localhost:8080/v1/transactions \
   -H "Content-Type: application/json" \
   -H "X-Idempotency-Key: transfer-001" \
   -d '{"source_account_id": 1, "destination_account_id": 2, "amount": "100.00"}'
@@ -283,8 +286,36 @@ This service implements production-grade security measures:
 | **Content-Type Validation** | Strict `application/json` validation on mutating requests |
 | **Security Headers** | `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Cache-Control: no-store` |
 | **Request Timeout** | 30-second timeout on all requests |
+| **Rate Limiting** | Token bucket algorithm (100 req/s, burst 200) to prevent API abuse |
 | **Idempotency** | Safe retries with `X-Idempotency-Key` header |
 | **Pessimistic Locking** | Ordered row locks to prevent deadlocks and race conditions |
+
+## Observability
+
+| Feature | Description |
+|---------|-------------|
+| **Distributed Tracing** | OpenTelemetry integration with OTLP exporter |
+| **Trace Context** | Trace/span IDs propagated through context and logs |
+| **Metrics** | Prometheus metrics for HTTP requests, transfers, DB connections |
+| **Structured Logging** | JSON logs with request_id, trace_id, span_id |
+
+### Enable Tracing
+
+To enable distributed tracing, set environment variables:
+
+```bash
+export TRACING_ENABLED=true
+export OTEL_EXPORTER_OTLP_ENDPOINT=localhost:4317  # Your OTLP collector
+```
+
+Or configure in `config/prod.toml`:
+
+```toml
+[tracing]
+enabled = true
+endpoint = "your-otlp-collector:4317"
+sample_rate = 0.1  # Sample 10% of requests
+```
 
 ---
 

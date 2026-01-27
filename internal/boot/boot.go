@@ -16,6 +16,7 @@ import (
 	"github.com/internal-transfers-service/internal/modules/health"
 	"github.com/internal-transfers-service/internal/modules/idempotency"
 	"github.com/internal-transfers-service/internal/modules/transaction"
+	"github.com/internal-transfers-service/internal/tracing"
 	"github.com/internal-transfers-service/pkg/database"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -27,6 +28,7 @@ const idempotencyCleanupInterval = 1 * time.Hour
 type App struct {
 	Config     *config.Config
 	Database   *database.Database
+	Tracer     *tracing.Tracer
 	Modules    *Modules
 	MainServer *http.Server
 	OpsServer  *http.Server
@@ -55,6 +57,10 @@ func Initialize(ctx context.Context) (*App, error) {
 	}
 
 	app.logStartup()
+
+	if err := app.initTracer(ctx); err != nil {
+		return nil, err
+	}
 
 	if err := app.initDatabase(ctx); err != nil {
 		return nil, err
@@ -90,6 +96,17 @@ func (a *App) logStartup() {
 		constants.LogFieldPort, a.Config.App.Port,
 		constants.LogFieldOpsPort, a.Config.App.OpsPort,
 	)
+}
+
+// initTracer initializes the OpenTelemetry tracer
+func (a *App) initTracer(ctx context.Context) error {
+	tracer, err := tracing.Initialize(ctx, &a.Config.Tracing, a.Config.App.Name)
+	if err != nil {
+		logger.Error(constants.LogMsgTracerInitFailed, constants.LogKeyError, err)
+		return err
+	}
+	a.Tracer = tracer
+	return nil
 }
 
 // initDatabase initializes the database connection with retry support
@@ -141,16 +158,21 @@ func (a *App) setupRouters() {
 func (a *App) createMainRouter() chi.Router {
 	router := chi.NewRouter()
 
-	// Apply middleware chain from interceptors package (with idempotency and rate limiting)
-	idempotencyRepo := a.Modules.Idempotency.GetRepository()
-	rateLimitCfg := a.Config.RateLimit
-	for _, mw := range interceptors.GetChiMiddlewareWithConfig(idempotencyRepo, rateLimitCfg) {
+	// Apply middleware chain from interceptors package (with idempotency, rate limiting, and tracing)
+	middlewareCfg := interceptors.MiddlewareConfig{
+		RateLimit:   a.Config.RateLimit,
+		Tracing:     a.Config.Tracing,
+		Idempotency: a.Modules.Idempotency.GetRepository(),
+	}
+	for _, mw := range interceptors.GetChiMiddlewareWithFullConfig(middlewareCfg) {
 		router.Use(mw)
 	}
 
-	// Register routes
-	a.Modules.Account.GetHandler().RegisterRoutes(router)
-	a.Modules.Transaction.GetHandler().RegisterRoutes(router)
+	// Register versioned API routes under /v1
+	router.Route(constants.APIVersionPrefix, func(r chi.Router) {
+		a.Modules.Account.GetHandler().RegisterRoutes(r)
+		a.Modules.Transaction.GetHandler().RegisterRoutes(r)
+	})
 
 	return router
 }
@@ -224,6 +246,9 @@ func (a *App) Shutdown(ctx context.Context) {
 
 	// Close database
 	a.Database.Close()
+
+	// Shutdown tracer
+	a.Tracer.Shutdown(shutdownCtx)
 
 	logger.Info(constants.LogMsgServiceStopped)
 }

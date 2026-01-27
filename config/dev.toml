@@ -33,3 +33,10 @@ enabled = true
 enabled = true
 requests_per_second = 1000.0
 burst_size = 2000
+
+[tracing]
+# Disabled by default in dev - enable locally if running Jaeger/OTLP collector
+enabled = false
+endpoint = "localhost:4317"
+sample_rate = 1.0
+insecure = true

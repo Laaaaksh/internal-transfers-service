@@ -50,3 +50,13 @@ cors_allow_origin = "${CORS_ALLOW_ORIGIN:-*}"
 enabled = true
 requests_per_second = 100.0
 burst_size = 200
+
+[tracing]
+# OpenTelemetry distributed tracing configuration
+# Set enabled = true and configure endpoint to enable tracing
+enabled = false
+endpoint = "${OTEL_EXPORTER_OTLP_ENDPOINT:-localhost:4317}"
+service_name = "internal-transfers-service"
+sample_rate = 1.0
+insecure = true
+batch_timeout = "5s"

@@ -84,6 +84,16 @@ func Ctx(ctx context.Context) *zap.SugaredLogger {
 		logger = logger.With(constants.LogKeyRequestID, requestID)
 	}
 
+	// Add trace ID if present
+	if traceID, ok := ctx.Value(contextkeys.TraceID).(string); ok && traceID != "" {
+		logger = logger.With(constants.LogFieldTraceID, traceID)
+	}
+
+	// Add span ID if present
+	if spanID, ok := ctx.Value(contextkeys.SpanID).(string); ok && spanID != "" {
+		logger = logger.With(constants.LogFieldSpanID, spanID)
+	}
+
 	return logger
 }
 

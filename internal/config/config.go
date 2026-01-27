@@ -24,6 +24,7 @@ type Config struct {
 	Idempotency IdempotencyConfig `mapstructure:"idempotency"`
 	Security    SecurityConfig    `mapstructure:"security"`
 	RateLimit   RateLimitConfig   `mapstructure:"rate_limit"`
+	Tracing     TracingConfig     `mapstructure:"tracing"`
 }
 
 // AppConfig holds application-level configuration
@@ -104,6 +105,16 @@ type RateLimitConfig struct {
 	Enabled        bool    `mapstructure:"enabled"`
 	RequestsPerSec float64 `mapstructure:"requests_per_second"`
 	BurstSize      int     `mapstructure:"burst_size"`
+}
+
+// TracingConfig holds distributed tracing configuration
+type TracingConfig struct {
+	Enabled      bool    `mapstructure:"enabled"`
+	Endpoint     string  `mapstructure:"endpoint"`
+	ServiceName  string  `mapstructure:"service_name"`
+	SampleRate   float64 `mapstructure:"sample_rate"`
+	Insecure     bool    `mapstructure:"insecure"`
+	BatchTimeout string  `mapstructure:"batch_timeout"`
 }
 
 // C is the global configuration instance

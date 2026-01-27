@@ -17,6 +17,12 @@ const (
 
 	// IdempotencyKey is the key for the idempotency key in context
 	IdempotencyKey ContextKey = "idempotency_key"
+
+	// TraceID is the key for the OpenTelemetry trace ID in context
+	TraceID ContextKey = "trace_id"
+
+	// SpanID is the key for the OpenTelemetry span ID in context
+	SpanID ContextKey = "span_id"
 )
 
 // String returns the string representation of the context key
