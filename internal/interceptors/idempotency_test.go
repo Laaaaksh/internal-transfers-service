@@ -42,7 +42,7 @@ func (s *IdempotencyTestSuite) TearDownTest() {
 func (s *IdempotencyTestSuite) TestMiddlewareSkipsGetRequests() {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ok"}`))
+		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	})
 
 	middleware := interceptors.IdempotencyMiddleware(s.mockRepo)
@@ -60,7 +60,7 @@ func (s *IdempotencyTestSuite) TestMiddlewareSkipsGetRequests() {
 func (s *IdempotencyTestSuite) TestMiddlewareSkipsRequestsWithoutKey() {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte(`{"id":"123"}`))
+		_, _ = w.Write([]byte(`{"id":"123"}`))
 	})
 
 	middleware := interceptors.IdempotencyMiddleware(s.mockRepo)
@@ -118,7 +118,7 @@ func (s *IdempotencyTestSuite) TestMiddlewareProcessesAndStoresOnMiss() {
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte(`{"transaction_id":"new-123"}`))
+		_, _ = w.Write([]byte(`{"transaction_id":"new-123"}`))
 	})
 
 	middleware := interceptors.IdempotencyMiddleware(s.mockRepo)
@@ -164,7 +164,7 @@ func (s *IdempotencyTestSuite) TestMiddlewareDoesNotCache5xxErrors() {
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"error":"internal error"}`))
+		_, _ = w.Write([]byte(`{"error":"internal error"}`))
 	})
 
 	middleware := interceptors.IdempotencyMiddleware(s.mockRepo)
@@ -192,7 +192,7 @@ func (s *IdempotencyTestSuite) TestMiddlewareHandlesPutRequests() {
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"updated":true}`))
+		_, _ = w.Write([]byte(`{"updated":true}`))
 	})
 
 	middleware := interceptors.IdempotencyMiddleware(s.mockRepo)

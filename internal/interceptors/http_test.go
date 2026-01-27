@@ -74,7 +74,7 @@ func (s *HTTPMiddlewareTestSuite) TestRecoveryMiddlewareRecoversPanic() {
 func (s *HTTPMiddlewareTestSuite) TestRecoveryMiddlewareAllowsNormalRequests() {
 	handler := interceptors.RecoveryMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("success"))
+		_, _ = w.Write([]byte("success"))
 	}))
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
@@ -135,7 +135,7 @@ func (s *HTTPMiddlewareTestSuite) TestTimeoutMiddlewareTimesOut() {
 func (s *HTTPMiddlewareTestSuite) TestTimeoutMiddlewareAllowsFastRequests() {
 	handler := interceptors.TimeoutMiddleware(100 * time.Millisecond)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("fast"))
+		_, _ = w.Write([]byte("fast"))
 	}))
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)

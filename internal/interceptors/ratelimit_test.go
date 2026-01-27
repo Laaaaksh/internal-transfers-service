@@ -231,7 +231,7 @@ func (s *RateLimitTestSuite) TestRateLimitMiddlewarePreservesHandlerBehavior() {
 	customHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Custom-Header", "test-value")
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte(`{"id": 123}`))
+		_, _ = w.Write([]byte(`{"id": 123}`))
 	})
 
 	handler := interceptors.RateLimitMiddleware(cfg)(customHandler)
@@ -250,6 +250,6 @@ func (s *RateLimitTestSuite) TestRateLimitMiddlewarePreservesHandlerBehavior() {
 func createOKHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, _ = w.Write([]byte("OK"))
 	})
 }
