@@ -1,0 +1,26 @@
+# CODEOWNERS - Defines code ownership for pull request reviews
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owners for everything in the repo
+* @Laaaaksh
+
+# Core application code
+/cmd/ @Laaaaksh
+/internal/ @Laaaaksh
+/pkg/ @Laaaaksh
+
+# Configuration files
+/config/ @Laaaaksh
+
+# Database migrations - require extra review
+/internal/database/migrations/ @Laaaaksh
+
+# CI/CD workflows
+/.github/ @Laaaaksh
+
+# Deployment configurations
+/deployment/ @Laaaaksh
+
+# Documentation
+/wiki/ @Laaaaksh
+README.md @Laaaaksh

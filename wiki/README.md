@@ -14,6 +14,7 @@ Welcome to the Internal Transfers Service documentation wiki.
 | [Architecture](architecture.md) | System architecture and design patterns |
 | [Deployment](deployment.md) | Production deployment guide |
 | [Troubleshooting](troubleshooting.md) | Common issues and solutions |
+| [Branch Protection](branch-protection.md) | Branch protection rules and contributor workflow |
 
 ## Quick Links
 
