@@ -2,25 +2,25 @@
 # https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
 # Default owners for everything in the repo
-* @Laaaaksh
+* @attentionfs
 
 # Core application code
-/cmd/ @Laaaaksh
-/internal/ @Laaaaksh
-/pkg/ @Laaaaksh
+/cmd/ @attentionfs
+/internal/ @attentionfs
+/pkg/ @attentionfs
 
 # Configuration files
-/config/ @Laaaaksh
+/config/ @attentionfs
 
 # Database migrations - require extra review
-/internal/database/migrations/ @Laaaaksh
+/internal/database/migrations/ @attentionfs
 
 # CI/CD workflows
-/.github/ @Laaaaksh
+/.github/ @attentionfs
 
 # Deployment configurations
-/deployment/ @Laaaaksh
+/deployment/ @attentionfs
 
 # Documentation
-/wiki/ @Laaaaksh
-README.md @Laaaaksh
+/wiki/ @attentionfs
+README.md @attentionfs

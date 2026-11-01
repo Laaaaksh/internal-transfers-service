@@ -60,19 +60,19 @@ The `.github/CODEOWNERS` file defines who must review changes to specific parts 
 
 ```
 # Default owners for everything
-* @Laaaaksh
+* @attentionfs
 
 # Core application code
-/cmd/ @Laaaaksh
-/internal/ @Laaaaksh
-/pkg/ @Laaaaksh
+/cmd/ @attentionfs
+/internal/ @attentionfs
+/pkg/ @attentionfs
 
 # Database migrations - require extra review
-/internal/database/migrations/ @Laaaaksh
+/internal/database/migrations/ @attentionfs
 
 # CI/CD and deployment
-/.github/ @Laaaaksh
-/deployment/ @Laaaaksh
+/.github/ @attentionfs
+/deployment/ @attentionfs
 ```
 
 ## Setting Up Branch Protection
@@ -89,7 +89,7 @@ chmod +x scripts/setup-branch-protection.sh
 ./scripts/setup-branch-protection.sh
 
 # Or specify repository explicitly
-./scripts/setup-branch-protection.sh Laaaaksh/internal-transfers-service
+./scripts/setup-branch-protection.sh attentionfs/internal-transfers-service
 ```
 
 ### Prerequisites

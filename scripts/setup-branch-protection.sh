@@ -10,7 +10,7 @@
 #   ./scripts/setup-branch-protection.sh [OWNER/REPO]
 #
 # Example:
-#   ./scripts/setup-branch-protection.sh Laaaaksh/internal-transfers-service
+#   ./scripts/setup-branch-protection.sh attentionfs/internal-transfers-service
 
 set -e
 
